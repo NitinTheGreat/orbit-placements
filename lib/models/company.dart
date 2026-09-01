@@ -59,7 +59,7 @@ class CompanyRound {
       name: map['name'] as String? ?? '',
       order: (map['order'] as num?)?.toInt() ?? 0,
       type: RoundType.fromWire(map['type']),
-      announcedAt: (map['announcedAt'] as Timestamp?)?.toDate(),
+      announcedAt: Company._toDate(map['announcedAt']),
     );
   }
 
@@ -125,7 +125,7 @@ class CompanyRequirement {
       label: label,
       url: map['url'] as String?,
       isRequired: map['required'] as bool? ?? false,
-      addedAt: (map['addedAt'] as Timestamp?)?.toDate(),
+      addedAt: Company._toDate(map['addedAt']),
       sourceMessageId: map['sourceMessageId'] as String?,
     );
   }
@@ -244,9 +244,8 @@ class Company {
               .toList() ??
           const <String>[],
       eligibilityCriteria: data['eligibilityCriteria'] as String?,
-      registrationDeadline: (data['registrationDeadline'] as Timestamp?)
-          ?.toDate(),
-      visitDate: (data['visitDate'] as Timestamp?)?.toDate(),
+      registrationDeadline: _toDate(data['registrationDeadline']),
+      visitDate: _toDate(data['visitDate']),
       status: CompanyStatus.fromWire(data['status']),
       requirements:
           (data['requirements'] as List<dynamic>?)
@@ -260,27 +259,30 @@ class Company {
               .map(CompanyRound.fromMap)
               .toList() ??
           const <CompanyRound>[],
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      createdAt: _toDate(data['createdAt']),
       sourceSubject: data['sourceSubject'] as String?,
-      sourceDate: _epochToDate(data['sourceDate']),
+      sourceDate: _toDate(data['sourceDate']),
       lastUpdatedSubject:
           (data['lastUpdatedFrom'] as Map<String, dynamic>?)?['subject']
               as String?,
-      lastUpdatedDate: _epochToDate(
+      lastUpdatedDate: _toDate(
         (data['lastUpdatedFrom'] as Map<String, dynamic>?)?['date'],
       ),
     );
   }
 
-  static DateTime? _epochToDate(Object? value) {
+  static DateTime? _toDate(Object? value) {
     if (value is Timestamp) {
       return value.toDate();
     }
-    if (value is int) {
-      return DateTime.fromMillisecondsSinceEpoch(value);
+    if (value is DateTime) {
+      return value;
     }
     if (value is num) {
       return DateTime.fromMillisecondsSinceEpoch(value.toInt());
+    }
+    if (value is String) {
+      return DateTime.tryParse(value);
     }
     return null;
   }

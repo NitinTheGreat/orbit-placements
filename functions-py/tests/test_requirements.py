@@ -213,3 +213,63 @@ def test_a_required_item_added_after_completion_reopens_the_application():
         )
         is True
     )
+
+
+def test_links_survive_html_stripping_so_the_model_can_see_them():
+    from orbit.cleaning import clean_body
+
+    html = (
+        '<p>Register here: '
+        '<a href="https://forms.gle/abc123">company registration form</a></p>'
+        '<p>Also <a href="https://neopat.example/portal">NeoPAT</a></p>'
+    )
+    cleaned = clean_body(html)
+
+    assert "https://forms.gle/abc123" in cleaned
+    assert "company registration form" in cleaned
+    assert "https://neopat.example/portal" in cleaned
+
+
+def test_mailto_and_anchor_links_are_dropped_not_shown_as_urls():
+    from orbit.cleaning import clean_body
+
+    cleaned = clean_body('<a href="mailto:cdc@vit.ac.in">write to us</a>')
+
+    assert "mailto:" not in cleaned
+    assert "write to us" in cleaned
+
+
+def test_mail_dates_become_real_datetimes_not_strings():
+    from orbit.store import IST, parse_mail_datetime
+
+    parsed = parse_mail_datetime("2026-09-02T16:00:00")
+    assert isinstance(parsed, datetime)
+    assert parsed.tzinfo is not None
+    assert parsed == datetime(2026, 9, 2, 16, 0, tzinfo=IST)
+
+
+def test_date_only_and_zulu_forms_are_accepted():
+    from orbit.store import IST, parse_mail_datetime
+
+    date_only = parse_mail_datetime("2026-09-02")
+    assert date_only.astimezone(IST).hour == 0
+    assert date_only.astimezone(IST).date() == datetime(2026, 9, 2).date()
+
+    zulu = parse_mail_datetime("2026-09-02T10:30:00Z")
+    assert zulu == datetime(2026, 9, 2, 10, 30, tzinfo=timezone.utc)
+
+
+def test_unparsable_or_missing_dates_return_none():
+    from orbit.store import parse_mail_datetime
+
+    assert parse_mail_datetime(None) is None
+    assert parse_mail_datetime("") is None
+    assert parse_mail_datetime("sometime next week") is None
+
+
+def test_epoch_millis_are_accepted():
+    from orbit.store import parse_mail_datetime
+
+    parsed = parse_mail_datetime(1788263265000)
+    assert isinstance(parsed, datetime)
+    assert parsed.year == 2026

@@ -4,8 +4,12 @@ import hashlib
 import re
 
 _TAG = re.compile(r"<[^>]+>")
+_ANCHOR = re.compile(
+    r"<a[^>]*href\s*=\s*(?P<q>[\"'])(?P<href>.*?)(?P=q)[^>]*>(?P<label>.*?)</a>",
+    re.IGNORECASE | re.DOTALL,
+)
 _STYLE_BLOCK = re.compile(r"<(script|style)[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
-_WHITESPACE = re.compile(r"[ \t ]+")
+_WHITESPACE = re.compile(r"[ \t ]+")
 _BLANK_LINES = re.compile(r"\n{3,}")
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+")
 _REG_NO = re.compile(r"\b\d{2}[A-Za-z]{3}\d{4}\b")
@@ -34,11 +38,24 @@ _SALUTATION = re.compile(
     r"^\s*(dear|hi|hello|greetings)\b.*$", re.IGNORECASE | re.MULTILINE
 )
 
+_SKIP_SCHEMES = ("mailto:", "tel:", "#", "javascript:")
+
+
+def _anchor_replacement(match: re.Match) -> str:
+    href = (match.group("href") or "").strip()
+    label = _TAG.sub(" ", match.group("label") or "").strip()
+    if not href or href.lower().startswith(_SKIP_SCHEMES):
+        return f" {label} "
+    if not label or label == href:
+        return f" {href} "
+    return f" {label} ({href}) "
+
 
 def strip_html(raw: str) -> str:
     if not raw:
         return ""
     text = _STYLE_BLOCK.sub(" ", raw)
+    text = _ANCHOR.sub(_anchor_replacement, text)
     text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
     text = re.sub(r"</(p|div|tr|li|h[1-6])>", "\n", text, flags=re.IGNORECASE)
     text = re.sub(r"</t[dh]>", "\t", text, flags=re.IGNORECASE)

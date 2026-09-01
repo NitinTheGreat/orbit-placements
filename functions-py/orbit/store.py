@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Protocol
 
 from .slugs import slugify, unique_slug
@@ -12,6 +12,30 @@ STUDENT_STATUS = "studentCompanyStatus"
 PROCESSED = "processedMessages"
 BROADCASTS = "broadcastHashes"
 CONFIG_DOC = "config/ingestion"
+
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def parse_mail_datetime(value: Any) -> datetime | None:
+    if value is None or isinstance(value, datetime):
+        return value
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value / 1000, tz=timezone.utc)
+    text = str(value).strip()
+    if not text:
+        return None
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    for candidate in (text, f"{text}T00:00:00"):
+        try:
+            parsed = datetime.fromisoformat(candidate)
+        except ValueError:
+            continue
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=IST)
+        return parsed.astimezone(timezone.utc)
+    return None
 
 
 def status_doc_id(student_id: str, company_id: str) -> str:

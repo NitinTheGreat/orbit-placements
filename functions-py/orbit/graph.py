@@ -15,6 +15,7 @@ from .store import (
     merge_requirements,
     merge_round_history,
     merge_rounds,
+    parse_mail_datetime,
     resolve_current_round_id,
     resolve_overall_status,
 )
@@ -128,9 +129,12 @@ def make_company_write(deps: Deps):
             or (existing or {}).get("eligibleBranches", []),
             "eligibilityCriteria": company_info.get("eligibility_criteria")
             or (existing or {}).get("eligibilityCriteria"),
-            "registrationDeadline": company_info.get("registration_deadline")
-            or (existing or {}).get("registrationDeadline"),
-            "visitDate": company_info.get("visit_date") or (existing or {}).get("visitDate"),
+            "registrationDeadline": parse_mail_datetime(
+                company_info.get("registration_deadline")
+            )
+            or parse_mail_datetime((existing or {}).get("registrationDeadline")),
+            "visitDate": parse_mail_datetime(company_info.get("visit_date"))
+            or parse_mail_datetime((existing or {}).get("visitDate")),
             "status": status,
             "rounds": rounds,
         }
