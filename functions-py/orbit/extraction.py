@@ -92,6 +92,9 @@ class GeminiExtractor:
                 response_mime_type="application/json",
                 response_schema=ExtractionResult,
                 temperature=0,
+                automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                    disable=True
+                ),
             ),
         )
 
