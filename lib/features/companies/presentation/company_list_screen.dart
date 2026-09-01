@@ -6,6 +6,7 @@ import '../../../core/routing/app_routes.dart';
 import '../../../core/session/session_controller.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../../models/company.dart';
+import '../../../models/gmail_sync.dart';
 import '../../../services/firestore_service.dart';
 import 'company_format.dart';
 
@@ -42,7 +43,18 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
           ),
         ],
       ),
-      body: StreamBuilder<List<Company>>(
+      body: Column(
+        children: [
+          if (!session.gmailSync.isConnected)
+            _GmailStatusBanner(status: session.gmailSync.status),
+          Expanded(child: _buildList()),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildList() {
+    return StreamBuilder<List<Company>>(
         stream: _companies,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
@@ -74,6 +86,56 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
                 _CompanyCard(company: companies[index]),
           );
         },
+    );
+  }
+}
+
+class _GmailStatusBanner extends StatelessWidget {
+  const _GmailStatusBanner({required this.status});
+
+  final GmailConnectionStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Material(
+      color: theme.colorScheme.errorContainer,
+      child: InkWell(
+        onTap: () => context.goNamed(AppRoutes.gmailConnect),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(
+                Icons.mark_email_unread_outlined,
+                size: 20,
+                color: theme.colorScheme.onErrorContainer,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Gmail: ${status.label}',
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.onErrorContainer,
+                      ),
+                    ),
+                    Text(
+                      'Orbit is not tracking your mail right now. Tap to '
+                      'reconnect.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onErrorContainer,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

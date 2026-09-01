@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'gmail_sync.dart';
+
 class Student {
   const Student({
     required this.uid,
@@ -9,6 +11,7 @@ class Student {
     required this.regNo,
     this.createdAt,
     this.fcmTokens = const <String>[],
+    this.gmailSync = const GmailSync(),
   });
 
   final String uid;
@@ -18,6 +21,7 @@ class Student {
   final String regNo;
   final DateTime? createdAt;
   final List<String> fcmTokens;
+  final GmailSync gmailSync;
 
   factory Student.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
@@ -35,6 +39,9 @@ class Student {
               ?.map((token) => token.toString())
               .toList() ??
           const <String>[],
+      gmailSync: GmailSync.fromMap(
+        data['gmailSync'] as Map<String, dynamic>?,
+      ),
     );
   }
 

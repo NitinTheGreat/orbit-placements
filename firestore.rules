@@ -18,12 +18,18 @@ service cloud.firestore {
       return isVitStudent() && request.auth.uid == uid;
     }
 
+    match /gmailTokens/{uid} {
+      allow read, write: if false;
+    }
+
     match /students/{uid} {
       allow read: if isOwner(uid) || isAdmin();
       allow create: if isOwner(uid)
-        && request.resource.data.vitEmail.lower() == request.auth.token.email.lower();
+        && request.resource.data.vitEmail.lower() == request.auth.token.email.lower()
+        && !request.resource.data.keys().hasAny(['gmailSync']);
       allow update: if isOwner(uid)
-        && request.resource.data.vitEmail == resource.data.vitEmail;
+        && request.resource.data.vitEmail == resource.data.vitEmail
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['gmailSync']);
       allow delete: if false;
     }
 

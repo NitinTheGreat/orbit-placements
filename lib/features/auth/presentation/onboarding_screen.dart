@@ -53,7 +53,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           regNo: _regNoController.text.trim().toUpperCase(),
         ),
       );
-      await session.refresh();
     } catch (_) {
       if (mounted) {
         setState(() {

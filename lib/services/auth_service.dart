@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../core/constants/app_config.dart';
 import '../core/constants/app_constants.dart';
 
 class AuthException implements Exception {
@@ -24,7 +25,7 @@ class AuthService {
   final FirebaseAuth _auth;
   final GoogleSignIn _googleSignIn;
 
-  bool _initialized = false;
+  static bool _initialized = false;
 
   User? get currentUser => _auth.currentUser;
 
@@ -34,8 +35,13 @@ class AuthService {
     if (_initialized) {
       return;
     }
+    final resolvedServerClientId =
+        serverClientId ??
+        (AppConfig.hasGoogleServerClientId
+            ? AppConfig.googleServerClientId
+            : null);
     await _googleSignIn.initialize(
-      serverClientId: serverClientId,
+      serverClientId: resolvedServerClientId,
       hostedDomain: AppConstants.allowedEmailDomain,
     );
     _initialized = true;

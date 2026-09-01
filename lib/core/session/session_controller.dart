@@ -3,11 +3,12 @@ import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../models/gmail_sync.dart';
+import '../../models/student.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
 import '../constants/app_constants.dart';
-
-enum SessionStatus { loading, signedOut, needsOnboarding, ready }
+import 'session_status.dart';
 
 class SessionController extends ChangeNotifier {
   SessionController({
@@ -15,28 +16,36 @@ class SessionController extends ChangeNotifier {
     FirestoreService? firestoreService,
   }) : _authService = authService ?? AuthService(),
        _firestoreService = firestoreService ?? FirestoreService() {
-    _subscription = _authService.idTokenChanges().listen(_handleUserChanged);
+    _authSubscription = _authService.idTokenChanges().listen(_handleUserChanged);
   }
 
   final AuthService _authService;
   final FirestoreService _firestoreService;
 
-  StreamSubscription<User?>? _subscription;
-  int _resolutionId = 0;
+  StreamSubscription<User?>? _authSubscription;
+  StreamSubscription<Student?>? _studentSubscription;
 
   SessionStatus _status = SessionStatus.loading;
   User? _user;
+  Student? _student;
   bool _isAdmin = false;
 
   SessionStatus get status => _status;
   User? get user => _user;
+  Student? get student => _student;
   bool get isAdmin => _isAdmin;
 
+  GmailSync get gmailSync => _student?.gmailSync ?? const GmailSync();
+
   Future<void> _handleUserChanged(User? user) async {
-    final resolutionId = ++_resolutionId;
+    await _studentSubscription?.cancel();
+    _studentSubscription = null;
 
     if (user == null) {
-      _apply(resolutionId, SessionStatus.signedOut, user: null, isAdmin: false);
+      _user = null;
+      _student = null;
+      _isAdmin = false;
+      _setStatus(SessionStatus.signedOut);
       return;
     }
 
@@ -46,50 +55,47 @@ class SessionController extends ChangeNotifier {
     }
 
     _user = user;
+    _isAdmin = await _authService.hasAdminClaim();
 
-    try {
-      final exists = await _firestoreService.studentExists(user.uid);
-      final isAdmin = await _authService.hasAdminClaim();
-      _apply(
-        resolutionId,
-        exists ? SessionStatus.ready : SessionStatus.needsOnboarding,
-        user: user,
-        isAdmin: isAdmin,
-      );
-    } catch (_) {
-      _apply(
-        resolutionId,
-        SessionStatus.needsOnboarding,
-        user: user,
-        isAdmin: false,
-      );
-    }
+    _studentSubscription = _firestoreService
+        .watchStudent(user.uid)
+        .listen(_handleStudentChanged, onError: _handleStudentError);
   }
 
-  void _apply(
-    int resolutionId,
-    SessionStatus status, {
-    required User? user,
-    required bool isAdmin,
-  }) {
-    if (resolutionId != _resolutionId) {
-      return;
-    }
+  void _handleStudentChanged(Student? student) {
+    _student = student;
+    _setStatus(
+      resolveSessionStatus(
+        signedIn: _user != null,
+        hasProfile: student != null,
+        gmailStatus: student?.gmailSync.status ?? GmailConnectionStatus.none,
+      ),
+    );
+  }
+
+  void _handleStudentError(Object error) {
+    _student = null;
+    _setStatus(
+      _user == null ? SessionStatus.signedOut : SessionStatus.needsOnboarding,
+    );
+  }
+
+  void _setStatus(SessionStatus status) {
     _status = status;
-    _user = user;
-    _isAdmin = isAdmin;
     notifyListeners();
   }
 
-  Future<void> refresh() async {
-    await _handleUserChanged(_authService.currentUser);
+  Future<void> refreshAdminClaim() async {
+    _isAdmin = await _authService.hasAdminClaim(forceRefresh: true);
+    notifyListeners();
   }
 
   Future<void> signOut() => _authService.signOut();
 
   @override
   void dispose() {
-    _subscription?.cancel();
+    _authSubscription?.cancel();
+    _studentSubscription?.cancel();
     super.dispose();
   }
 }

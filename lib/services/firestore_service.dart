@@ -30,6 +30,13 @@ class FirestoreService {
     return doc.exists ? Student.fromFirestore(doc) : null;
   }
 
+  Stream<Student?> watchStudent(String uid) {
+    return _students
+        .doc(uid)
+        .snapshots()
+        .map((doc) => doc.exists ? Student.fromFirestore(doc) : null);
+  }
+
   Future<void> createStudent(Student student) {
     return _students.doc(student.uid).set(student.toFirestore());
   }
