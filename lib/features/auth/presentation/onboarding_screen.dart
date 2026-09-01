@@ -143,10 +143,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                     if (_error != null) ...[
                       const SizedBox(height: OrbitSpacing.lg),
-                      OrbitNotice(
-                        message: _error!,
-                        icon: Icons.error_outline,
-                      ),
+                      OrbitNotice(message: _error!, icon: Icons.error_outline),
                     ],
                     const SizedBox(height: OrbitSpacing.xxl),
                     FilledButton(

@@ -215,9 +215,7 @@ class AppTheme {
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: colors.ink,
-        contentTextStyle: textTheme.bodyMedium?.copyWith(
-          color: colors.surface,
-        ),
+        contentTextStyle: textTheme.bodyMedium?.copyWith(color: colors.surface),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(OrbitRadius.control),

@@ -16,7 +16,9 @@ class SessionController extends ChangeNotifier {
     FirestoreService? firestoreService,
   }) : _authService = authService ?? AuthService(),
        _firestoreService = firestoreService ?? FirestoreService() {
-    _authSubscription = _authService.idTokenChanges().listen(_handleUserChanged);
+    _authSubscription = _authService.idTokenChanges().listen(
+      _handleUserChanged,
+    );
   }
 
   final AuthService _authService;

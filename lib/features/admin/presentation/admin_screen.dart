@@ -21,9 +21,11 @@ class RequirementDraft {
   CompanyRequirement toRequirement() {
     final type = typeController.text.trim();
     final url = urlController.text.trim();
+    final label = labelController.text.trim();
     return CompanyRequirement(
+      id: slugify(label),
       type: type.isEmpty ? 'other' : type,
-      label: labelController.text.trim(),
+      label: label,
       url: url.isEmpty ? null : url,
       isRequired: isRequired,
     );
@@ -128,9 +130,8 @@ class _AdminScreenState extends State<AdminScreen> {
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text('${company.name} added')));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text('${company.name} added')));
     context.goNamed(AppRoutes.companies);
   }
 

@@ -8,11 +8,7 @@ String? redirect(
   String location, {
   bool isAdmin = false,
 }) {
-  return resolveRedirect(
-    status: status,
-    location: location,
-    isAdmin: isAdmin,
-  );
+  return resolveRedirect(status: status, location: location, isAdmin: isAdmin);
 }
 
 void main() {
@@ -71,17 +67,17 @@ void main() {
     });
 
     test('loading holds on splash', () {
-      expect(redirect(SessionStatus.loading, AppPaths.companies), AppPaths.splash);
+      expect(
+        redirect(SessionStatus.loading, AppPaths.companies),
+        AppPaths.splash,
+      );
       expect(redirect(SessionStatus.loading, AppPaths.splash), isNull);
     });
   });
 
   group('admin gate', () {
     test('a non-admin cannot reach the admin route', () {
-      expect(
-        redirect(SessionStatus.ready, AppPaths.admin),
-        AppPaths.companies,
-      );
+      expect(redirect(SessionStatus.ready, AppPaths.admin), AppPaths.companies);
     });
 
     test('an admin can', () {

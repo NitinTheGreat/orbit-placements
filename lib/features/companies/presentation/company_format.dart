@@ -75,9 +75,11 @@ DeadlineUrgency deadlineUrgency(DateTime? deadline, {DateTime? now}) {
 
   final reference = now ?? DateTime.now();
   final local = deadline.toLocal();
-  final days = DateTime(local.year, local.month, local.day)
-      .difference(DateTime(reference.year, reference.month, reference.day))
-      .inDays;
+  final days = DateTime(
+    local.year,
+    local.month,
+    local.day,
+  ).difference(DateTime(reference.year, reference.month, reference.day)).inDays;
 
   if (days < 0) {
     return DeadlineUrgency.passed;

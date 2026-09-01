@@ -16,7 +16,7 @@ class StatusChip extends StatelessWidget {
     final reduceMotion = prefersReducedMotion(context);
 
     final (Color wash, Color ink) = switch (status) {
-      CompanyStatus.open => (colors.successWash, colors.successInk),
+      CompanyStatus.registrationOpen => (colors.successWash, colors.successInk),
       CompanyStatus.closed => (colors.surfaceSunken, colors.inkMuted),
       _ => (colors.accentWash, colors.accentInk),
     };
@@ -42,8 +42,11 @@ class StatusChip extends StatelessWidget {
           const SizedBox(width: OrbitSpacing.sm),
           Text(
             status.label,
-            style: (dense ? theme.textTheme.labelSmall : theme.textTheme.labelMedium)
-                ?.copyWith(color: ink, fontWeight: FontWeight.w600),
+            style:
+                (dense
+                        ? theme.textTheme.labelSmall
+                        : theme.textTheme.labelMedium)
+                    ?.copyWith(color: ink, fontWeight: FontWeight.w600),
           ),
         ],
       ),

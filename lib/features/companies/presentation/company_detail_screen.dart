@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/routing/app_routes.dart';
+import '../../../core/session/session_controller.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/widgets/orbit_notice.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../../core/widgets/urgency_rail.dart';
 import '../../../models/company.dart';
+import '../../../models/student_company_status.dart';
 import '../../../services/firestore_service.dart';
 import 'company_format.dart';
 
@@ -72,7 +74,10 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
             );
           }
 
-          return _DetailBody(company: company);
+          return _DetailBody(
+            company: company,
+            firestoreService: _firestoreService,
+          );
         },
       ),
     );
@@ -80,9 +85,10 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
 }
 
 class _DetailBody extends StatelessWidget {
-  const _DetailBody({required this.company});
+  const _DetailBody({required this.company, required this.firestoreService});
 
   final Company company;
+  final FirestoreService firestoreService;
 
   @override
   Widget build(BuildContext context) {
@@ -114,6 +120,8 @@ class _DetailBody extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: StatusChip(status: company.status),
         ),
+        const SizedBox(height: OrbitSpacing.xl),
+        _TrackingToggle(company: company, firestoreService: firestoreService),
         const SizedBox(height: OrbitSpacing.xl),
         _DeadlineCard(deadline: company.registrationDeadline, urgency: urgency),
         const SizedBox(height: OrbitSpacing.xl),
@@ -163,6 +171,67 @@ class _DetailBody extends StatelessWidget {
             (requirement) => _RequirementRow(requirement: requirement),
           ),
       ],
+    );
+  }
+}
+
+class _TrackingToggle extends StatelessWidget {
+  const _TrackingToggle({
+    required this.company,
+    required this.firestoreService,
+  });
+
+  final Company company;
+  final FirestoreService firestoreService;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = OrbitTheme.of(context);
+    final session = SessionScope.of(context);
+    final studentId = session.user?.uid;
+
+    if (studentId == null) {
+      return const SizedBox.shrink();
+    }
+
+    return StreamBuilder<StudentCompanyStatus?>(
+      stream: firestoreService.watchStatus(
+        studentId: studentId,
+        companyId: company.id,
+      ),
+      builder: (context, snapshot) {
+        final status = snapshot.data;
+        final tracking = status?.optedIn ?? true;
+
+        return Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: OrbitSpacing.lg,
+            vertical: OrbitSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: colors.surfaceRaised,
+            borderRadius: BorderRadius.circular(OrbitRadius.card),
+            border: Border.all(color: colors.border),
+          ),
+          child: SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text('Track this drive', style: theme.textTheme.labelLarge),
+            subtitle: Text(
+              tracking
+                  ? 'Orbit updates your progress from your mail.'
+                  : 'Orbit ignores this drive when reading your mail.',
+              style: theme.textTheme.bodySmall,
+            ),
+            value: tracking,
+            onChanged: (value) => firestoreService.setOptedIn(
+              studentId: studentId,
+              companyId: company.id,
+              optedIn: value,
+            ),
+          ),
+        );
+      },
     );
   }
 }

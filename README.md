@@ -216,6 +216,65 @@ dk8.2.13676358`. AGP's own download failed for lack of space on `C:`.
 
 The AVD also lives on `F:` via `ANDROID_AVD_HOME`.
 
+## Gmail ingestion pipeline
+
+Placement mail is turned into drive records by a LangGraph graph running as a
+Python Cloud Function in `functions-py/`. Pub/Sub triggers it when Gmail
+reports new mail; `syncNow` runs the same graph on demand.
+
+### The graph
+
+```
+        cheap_filter ──reject──> END
+             │
+        dedup_check ──known hash──> company_write
+             │ new
+        llm_extract ──> company_write ──> match_student ──no match──> END
+                                              │ matched
+                                        check_opt_in ──opted out──> END
+                                              │
+                                   update_student_status ──> END
+```
+
+`llm_extract` is the only node that calls a model. Every other node is
+deterministic, so a rerun on the same mail produces the same writes.
+`company_write` runs regardless of any student's opt-in, because the drive
+directory is shared; only `update_student_status` is per-student.
+
+Before the graph runs at all, `processedMessages/{messageId}` is checked, so a
+Pub/Sub redelivery acks and skips rather than writing twice. The cutoff date
+lives in `config/ingestion` and is read once per cold start.
+
+### Data model
+
+`companies/{companyId}` gains `rounds: [{ id, name, order, type, announcedAt }]`
+where `id` is a slug of the name (`technical-round-1`), colliding ids get `-2`,
+and `order` is explicit rather than array position. `requirements` entries now
+carry a stable `id`. `status` is coarse — `registration_open`, `in_progress`,
+`results_declared`, `closed` — and bumps from `registration_open` to
+`in_progress` the moment a first round is created.
+
+`studentCompanyStatus/{uid}_{companyId}` replaces the old `stage` enum with
+`roundHistory: [{ roundId, result, updatedAt, sourceMessageId }]`, keyed by
+`roundId` so a repeat result overwrites in place rather than appending.
+`currentRoundId` and `overallStatus` are recomputed on every write and never
+read back from a stored value. `optedIn` is three-state: unset becomes `true`
+the first time a student is genuinely named in a drive's mail, an explicit
+`false` always suppresses, and nothing ever auto-sets `false`.
+
+This was a model change against an empty database, not a migration.
+
+### Running it
+
+```bash
+cd functions-py && python -m pytest tests/ -q
+firebase functions:secrets:set ANTHROPIC_API_KEY --data-file path/to/key.txt
+firebase deploy --only functions:ingestion
+```
+
+Attachment parsing uses `openpyxl` for xlsx and `pypdf` for pdf, with the
+standard library for csv.
+
 ## Implemented
 
 - Google sign-in restricted to `@vitstudent.ac.in`, enforced client-side and in Firestore rules
@@ -229,12 +288,18 @@ The AVD also lives on `F:` via `ANDROID_AVD_HOME`.
 - Mandatory Gmail connect step in onboarding, using the hybrid server-side flow
 - `connectGmail` callable function: token exchange, refresh-token storage, and `users.watch()` registration
 - Gmail connection status banner on the drive list, linking back to reconnect
+- LangGraph ingestion pipeline: cutoff filter, broadcast dedup, one LLM
+  extraction call, company and round upsert, deterministic student matching
+  with attachment fallback, and opt-in gating
+- `syncNow` callable behind a 30 second per-student server-side cooldown, wired
+  to pull-to-refresh on the drive list
+- Per-drive tracking toggle on company detail
 
 ## Pending
 
-- Processing the Pub/Sub notifications the watch produces — nothing consumes them yet
 - Renewing Gmail watches before their seven-day expiry
-- Extracting drives from mail and writing `studentCompanyStatus`
+- A reconciliation sweep for mail missed while a watch was expired
+- Requirement checkboxes, which is why `requirements[].id` exists already
 - Push notifications (`fcmTokens` is modelled but never written yet)
 - Firebase Hosting for the web admin dashboard
 - Student-facing UI for setting your own stage on a drive

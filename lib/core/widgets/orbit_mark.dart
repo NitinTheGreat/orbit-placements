@@ -53,11 +53,7 @@ class _OrbitMarkPainter extends CustomPainter {
     );
     canvas.restore();
 
-    canvas.drawCircle(
-      center,
-      size.width * 0.19,
-      Paint()..color = body,
-    );
+    canvas.drawCircle(center, size.width * 0.19, Paint()..color = body);
   }
 
   @override

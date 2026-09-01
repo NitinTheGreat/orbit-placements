@@ -4,7 +4,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'auth_service.dart';
 
 class GmailScopes {
-  static const String readonly = 'https://www.googleapis.com/auth/gmail.readonly';
+  static const String readonly =
+      'https://www.googleapis.com/auth/gmail.readonly';
 
   static const List<String> required = <String>[readonly];
 }

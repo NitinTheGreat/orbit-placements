@@ -74,7 +74,9 @@ class FirestoreService {
     return _statuses
         .doc(id)
         .snapshots()
-        .map((doc) => doc.exists ? StudentCompanyStatus.fromFirestore(doc) : null);
+        .map(
+          (doc) => doc.exists ? StudentCompanyStatus.fromFirestore(doc) : null,
+        );
   }
 
   Stream<List<StudentCompanyStatus>> watchStatusesForStudent(String studentId) {
@@ -88,7 +90,20 @@ class FirestoreService {
         );
   }
 
-  Future<void> upsertStatus(StudentCompanyStatus status) {
-    return _statuses.doc(status.id).set(status.toFirestore());
+  Future<void> setOptedIn({
+    required String studentId,
+    required String companyId,
+    required bool optedIn,
+  }) {
+    final id = StudentCompanyStatus.docIdFor(
+      studentId: studentId,
+      companyId: companyId,
+    );
+    return _statuses.doc(id).set(<String, dynamic>{
+      'studentId': studentId,
+      'companyId': companyId,
+      'optedIn': optedIn,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 }

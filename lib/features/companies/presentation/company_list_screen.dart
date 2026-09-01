@@ -10,6 +10,7 @@ import '../../../core/widgets/pressable.dart';
 import '../../../models/company.dart';
 import '../../../models/gmail_sync.dart';
 import '../../../services/firestore_service.dart';
+import '../../../services/sync_service.dart';
 import 'widgets/drive_card.dart';
 
 class CompanyListScreen extends StatefulWidget {
@@ -21,8 +22,20 @@ class CompanyListScreen extends StatefulWidget {
 
 class _CompanyListScreenState extends State<CompanyListScreen> {
   final FirestoreService _firestoreService = FirestoreService();
-  late final Stream<List<Company>> _companies =
-      _firestoreService.watchCompanies();
+  final SyncService _syncService = SyncService();
+  late final Stream<List<Company>> _companies = _firestoreService
+      .watchCompanies();
+
+  Future<void> _refresh() async {
+    try {
+      await _syncService.syncNow();
+    } on SyncException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(error.message)));
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -142,38 +155,41 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
 
         final reduceMotion = prefersReducedMotion(context);
 
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(
-            OrbitSpacing.lg,
-            OrbitSpacing.xs,
-            OrbitSpacing.lg,
-            OrbitSpacing.xxl,
+        return RefreshIndicator(
+          onRefresh: _refresh,
+          child: ListView.separated(
+            padding: const EdgeInsets.fromLTRB(
+              OrbitSpacing.lg,
+              OrbitSpacing.xs,
+              OrbitSpacing.lg,
+              OrbitSpacing.xxl,
+            ),
+            itemCount: companies.length,
+            separatorBuilder: (context, index) =>
+                const SizedBox(height: OrbitSpacing.md),
+            itemBuilder: (context, index) {
+              final company = companies[index];
+              final card = DriveCard(
+                company: company,
+                onTap: () => context.goNamed(
+                  AppRoutes.companyDetail,
+                  pathParameters: {'companyId': company.id},
+                ),
+              );
+              if (reduceMotion) {
+                return card;
+              }
+              return card
+                  .animate(delay: OrbitMotion.stagger * index)
+                  .fadeIn(duration: OrbitMotion.entrance)
+                  .slideY(
+                    begin: 0.08,
+                    end: 0,
+                    duration: OrbitMotion.entrance,
+                    curve: OrbitMotion.settle,
+                  );
+            },
           ),
-          itemCount: companies.length,
-          separatorBuilder: (context, index) =>
-              const SizedBox(height: OrbitSpacing.md),
-          itemBuilder: (context, index) {
-            final company = companies[index];
-            final card = DriveCard(
-              company: company,
-              onTap: () => context.goNamed(
-                AppRoutes.companyDetail,
-                pathParameters: {'companyId': company.id},
-              ),
-            );
-            if (reduceMotion) {
-              return card;
-            }
-            return card
-                .animate(delay: OrbitMotion.stagger * index)
-                .fadeIn(duration: OrbitMotion.entrance)
-                .slideY(
-                  begin: 0.08,
-                  end: 0,
-                  duration: OrbitMotion.entrance,
-                  curve: OrbitMotion.settle,
-                );
-          },
         );
       },
     );

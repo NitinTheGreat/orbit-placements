@@ -18,7 +18,10 @@ void main() {
 
     test('rejects a lookalike domain suffix', () {
       expect(AppConstants.isAllowedEmail('a@notvitstudent.ac.in'), isFalse);
-      expect(AppConstants.isAllowedEmail('a@vitstudent.ac.in.evil.com'), isFalse);
+      expect(
+        AppConstants.isAllowedEmail('a@vitstudent.ac.in.evil.com'),
+        isFalse,
+      );
     });
 
     test('rejects null and empty values', () {

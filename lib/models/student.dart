@@ -23,9 +23,7 @@ class Student {
   final List<String> fcmTokens;
   final GmailSync gmailSync;
 
-  factory Student.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
+  factory Student.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? <String, dynamic>{};
     return Student(
       uid: doc.id,
@@ -39,9 +37,7 @@ class Student {
               ?.map((token) => token.toString())
               .toList() ??
           const <String>[],
-      gmailSync: GmailSync.fromMap(
-        data['gmailSync'] as Map<String, dynamic>?,
-      ),
+      gmailSync: GmailSync.fromMap(data['gmailSync'] as Map<String, dynamic>?),
     );
   }
 

@@ -24,22 +24,25 @@ List<Company> sampleCompanies() {
       stipend: '80k per month',
       registrationDeadline: now.add(const Duration(hours: 9)),
       visitDate: now.add(const Duration(days: 12)),
-      status: CompanyStatus.open,
+      status: CompanyStatus.registrationOpen,
       eligibleBranches: const ['CSE', 'IT', 'ECE'],
       eligibilityCriteria: 'CGPA 8.0 and above, no standing arrears',
       requirements: const [
         CompanyRequirement(
+          id: 'registration-form',
           type: 'form',
           label: 'Fill the registration form on the portal',
           url: 'https://forms.example.com/rubrik-2026',
           isRequired: true,
         ),
         CompanyRequirement(
+          id: 'resume',
           type: 'resume',
           label: 'Upload a one-page resume',
           isRequired: true,
         ),
         CompanyRequirement(
+          id: 'ppt',
           type: 'ppt',
           label: 'Attend the pre-placement talk',
           isRequired: false,
@@ -52,7 +55,7 @@ List<Company> sampleCompanies() {
       category: 'Dream',
       ctc: '12 LPA',
       registrationDeadline: now.add(const Duration(days: 2)),
-      status: CompanyStatus.pptScheduled,
+      status: CompanyStatus.inProgress,
     ),
     Company(
       id: 'c3',
@@ -61,7 +64,7 @@ List<Company> sampleCompanies() {
       ctc: '24 LPA',
       stipend: '65k per month',
       registrationDeadline: now.add(const Duration(days: 5)),
-      status: CompanyStatus.shortlisting,
+      status: CompanyStatus.inProgress,
     ),
     Company(
       id: 'c4',
@@ -69,7 +72,7 @@ List<Company> sampleCompanies() {
       category: 'Core',
       ctc: '7 LPA',
       registrationDeadline: now.add(const Duration(days: 21)),
-      status: CompanyStatus.oaScheduled,
+      status: CompanyStatus.resultsDeclared,
     ),
     Company(
       id: 'c5',
@@ -286,9 +289,15 @@ class _PreviewHome extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: OrbitSpacing.xl),
-                  FilledButton(onPressed: () {}, child: const Text('Connect Gmail')),
+                  FilledButton(
+                    onPressed: () {},
+                    child: const Text('Connect Gmail'),
+                  ),
                   const SizedBox(height: OrbitSpacing.md),
-                  OutlinedButton(onPressed: () {}, child: const Text('Sign out')),
+                  OutlinedButton(
+                    onPressed: () {},
+                    child: const Text('Sign out'),
+                  ),
                   const SizedBox(height: OrbitSpacing.xl),
                   const OrbitEmptyState(
                     icon: Icons.calendar_today_outlined,
