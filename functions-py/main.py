@@ -10,7 +10,7 @@ from firebase_admin import firestore as admin_firestore
 from firebase_functions import https_fn, options, pubsub_fn
 from firebase_functions.params import SecretParam, StringParam
 
-from orbit.extraction import AnthropicExtractor
+from orbit.extraction import GeminiExtractor
 from orbit.firestore_store import FirestoreStore
 from orbit.gmail_client import GmailClient, build_service
 from orbit.graph import build_graph
@@ -20,7 +20,7 @@ from orbit.store import Deps, utc_now
 GMAIL_OAUTH_CLIENT_ID = StringParam("GMAIL_OAUTH_CLIENT_ID")
 GMAIL_PUBSUB_TOPIC = StringParam("GMAIL_PUBSUB_TOPIC")
 GMAIL_OAUTH_CLIENT_SECRET = SecretParam("GMAIL_OAUTH_CLIENT_SECRET")
-ANTHROPIC_API_KEY = SecretParam("ANTHROPIC_API_KEY")
+GEMINI_API_KEY = SecretParam("GEMINI_API_KEY")
 
 ALLOWED_EMAIL_DOMAIN = "@vitstudent.ac.in"
 SYNC_COOLDOWN_SECONDS = 30
@@ -64,7 +64,7 @@ def _run_for_messages(
     deps = Deps(
         store=store,
         gmail=gmail,
-        extractor=AnthropicExtractor(),
+        extractor=GeminiExtractor(),
         now=utc_now,
     )
     graph = build_graph(deps)
@@ -132,7 +132,7 @@ def _collect_message_ids(
 
 @pubsub_fn.on_message_published(
     topic="gmail-notifications",
-    secrets=[GMAIL_OAUTH_CLIENT_SECRET, ANTHROPIC_API_KEY],
+    secrets=[GMAIL_OAUTH_CLIENT_SECRET, GEMINI_API_KEY],
     region="us-central1",
     memory=options.MemoryOption.MB_512,
     timeout_sec=540,
@@ -163,7 +163,7 @@ def ingestGmailNotification(event: pubsub_fn.CloudEvent) -> None:
 
 
 @https_fn.on_call(
-    secrets=[GMAIL_OAUTH_CLIENT_SECRET, ANTHROPIC_API_KEY],
+    secrets=[GMAIL_OAUTH_CLIENT_SECRET, GEMINI_API_KEY],
     region="us-central1",
     memory=options.MemoryOption.MB_512,
     timeout_sec=300,

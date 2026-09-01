@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import json
 import os
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
-EXTRACTION_MODEL = os.environ.get("ORBIT_EXTRACTION_MODEL", "claude-opus-5")
+EXTRACTION_MODEL = os.environ.get("ORBIT_EXTRACTION_MODEL", "gemini-3.7-flash")
 
 SYSTEM_PROMPT = (
     "You read placement emails sent to students at VIT and turn them into "
@@ -64,32 +65,43 @@ class ExtractionResult(BaseModel):
 
 
 def build_prompt(sender: str, subject: str, body: str) -> str:
-    return (
-        f"From: {sender}\n"
-        f"Subject: {subject}\n\n"
-        f"{body}"
-    )
+    return f"From: {sender}\nSubject: {subject}\n\n{body}"
 
 
-class AnthropicExtractor:
+class GeminiExtractor:
     def __init__(self, client=None, model: str = EXTRACTION_MODEL):
         self._client = client
         self._model = model
 
     def _ensure_client(self):
         if self._client is None:
-            import anthropic
+            from google import genai
 
-            self._client = anthropic.Anthropic()
+            self._client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
         return self._client
 
     def __call__(self, sender: str, subject: str, body: str) -> dict:
+        from google.genai import types
+
         client = self._ensure_client()
-        response = client.messages.parse(
+        response = client.models.generate_content(
             model=self._model,
-            max_tokens=4000,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": build_prompt(sender, subject, body)}],
-            output_format=ExtractionResult,
+            contents=build_prompt(sender, subject, body),
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                response_mime_type="application/json",
+                response_schema=ExtractionResult,
+                temperature=0,
+            ),
         )
-        return response.parsed_output.model_dump()
+
+        parsed = response.parsed
+        if isinstance(parsed, ExtractionResult):
+            return parsed.model_dump()
+        if isinstance(parsed, dict):
+            return ExtractionResult.model_validate(parsed).model_dump()
+        if response.text:
+            return ExtractionResult.model_validate(
+                json.loads(response.text)
+            ).model_dump()
+        raise ValueError("Gemini returned no parsable extraction result")

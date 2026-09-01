@@ -264,16 +264,45 @@ the first time a student is genuinely named in a drive's mail, an explicit
 
 This was a model change against an empty database, not a migration.
 
-### Running it
+### Extraction model
 
-```bash
-cd functions-py && python -m pytest tests/ -q
-firebase functions:secrets:set ANTHROPIC_API_KEY --data-file path/to/key.txt
-firebase deploy --only functions:ingestion
-```
+`llm_extract` calls Gemini through the `google-genai` SDK with API-key auth,
+asking for `response_mime_type='application/json'` against the `ExtractionResult`
+Pydantic model, so the response comes back on `response.parsed` already
+validated. The model defaults to `gemini-3.7-flash` and is overridable with
+`ORBIT_EXTRACTION_MODEL`. Only this node changed when the provider was swapped;
+the graph, its branches, and every other node were untouched.
 
 Attachment parsing uses `openpyxl` for xlsx and `pypdf` for pdf, with the
 standard library for csv.
+
+### Working on functions-py
+
+Python dependencies live in a virtualenv rather than on the machine:
+
+```bash
+cd functions-py
+python -m venv venv
+venv\Scriptsctivate        # Windows
+source venv/bin/activate      # macOS and Linux
+pip install -r requirements.txt
+python -m pytest tests/ -q
+```
+
+### Secrets, then deploy
+
+Copy `functions-py/.env.example` to `functions-py/.env` and fill in
+`GEMINI_API_KEY`. Push it to Secret Manager as a separate step before
+deploying, never as part of the deploy:
+
+```bash
+python functions-py/scripts/push_secrets.py --project orbit-507316
+firebase deploy --only functions:ingestion
+```
+
+The script writes each value to a temporary file with no trailing newline and
+hands it to `firebase functions:secrets:set --data-file`, so the value never
+reaches shell history and Secret Manager stores the exact bytes.
 
 ## Implemented
 
