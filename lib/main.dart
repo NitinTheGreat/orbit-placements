@@ -6,6 +6,7 @@ import 'core/constants/app_constants.dart';
 import 'core/routing/app_router.dart';
 import 'core/session/session_controller.dart';
 import 'core/theme/app_theme.dart';
+import 'core/theme/app_tokens.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -51,6 +52,13 @@ class _OrbitAppState extends State<OrbitApp> {
         darkTheme: AppTheme.dark,
         themeMode: ThemeMode.system,
         routerConfig: _router,
+        builder: (context, child) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          return OrbitTheme(
+            colors: isDark ? OrbitColors.dark : OrbitColors.light,
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
       ),
     );
   }

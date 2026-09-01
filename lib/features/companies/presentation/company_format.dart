@@ -60,3 +60,36 @@ class CompanyFormat {
     return 'Closes ${date(deadline)}';
   }
 }
+
+enum DeadlineUrgency { unknown, passed, today, imminent, thisWeek, distant }
+
+extension DeadlineUrgencyInfo on DeadlineUrgency {
+  bool get isPressing =>
+      this == DeadlineUrgency.today || this == DeadlineUrgency.imminent;
+}
+
+DeadlineUrgency deadlineUrgency(DateTime? deadline, {DateTime? now}) {
+  if (deadline == null) {
+    return DeadlineUrgency.unknown;
+  }
+
+  final reference = now ?? DateTime.now();
+  final local = deadline.toLocal();
+  final days = DateTime(local.year, local.month, local.day)
+      .difference(DateTime(reference.year, reference.month, reference.day))
+      .inDays;
+
+  if (days < 0) {
+    return DeadlineUrgency.passed;
+  }
+  if (days == 0) {
+    return DeadlineUrgency.today;
+  }
+  if (days <= 2) {
+    return DeadlineUrgency.imminent;
+  }
+  if (days <= 7) {
+    return DeadlineUrgency.thisWeek;
+  }
+  return DeadlineUrgency.distant;
+}

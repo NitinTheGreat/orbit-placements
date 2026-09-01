@@ -56,3 +56,15 @@ ios/Runner/GoogleService-Info.plist
 ios/firebase_app_id_file.json
 scripts/node_modules/
 scripts/serviceAccountKey*.json
+
+# Service account keys and credentials (never commit)
+*serviceAccount*.json
+*-*-*.json
+!firebase.json
+!firestore.indexes.json
+!package.json
+!package-lock.json
+*.pem
+*.p12
+credentials*.json
+client_secret*.json

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/routing/app_routes.dart';
+import '../../../core/theme/app_tokens.dart';
+import '../../../core/widgets/orbit_notice.dart';
 import '../../../models/company.dart';
 import '../../../services/firestore_service.dart';
 
@@ -142,13 +144,18 @@ class _AdminScreenState extends State<AdminScreen> {
           icon: const Icon(Icons.close),
           onPressed: () => context.goNamed(AppRoutes.companies),
         ),
-        title: const Text('Add a drive'),
+        title: Text('Add a drive', style: theme.textTheme.titleMedium),
       ),
       body: SafeArea(
         child: Form(
           key: _formKey,
           child: ListView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(
+              OrbitSpacing.xl,
+              OrbitSpacing.sm,
+              OrbitSpacing.xl,
+              OrbitSpacing.xxl,
+            ),
             children: [
               TextFormField(
                 controller: _nameController,
@@ -157,7 +164,7 @@ class _AdminScreenState extends State<AdminScreen> {
                     ? 'Enter a company name'
                     : null,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: OrbitSpacing.lg),
               TextFormField(
                 controller: _categoryController,
                 decoration: const InputDecoration(
@@ -168,7 +175,7 @@ class _AdminScreenState extends State<AdminScreen> {
                     ? 'Enter a category'
                     : null,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: OrbitSpacing.lg),
               TextFormField(
                 controller: _ctcController,
                 decoration: const InputDecoration(
@@ -176,7 +183,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   hintText: '12 LPA',
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: OrbitSpacing.lg),
               TextFormField(
                 controller: _stipendController,
                 decoration: const InputDecoration(
@@ -184,7 +191,7 @@ class _AdminScreenState extends State<AdminScreen> {
                   hintText: '50k per month',
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: OrbitSpacing.lg),
               InkWell(
                 onTap: _pickDeadline,
                 borderRadius: BorderRadius.circular(12),
@@ -218,7 +225,7 @@ class _AdminScreenState extends State<AdminScreen> {
               ),
               if (_requirements.isEmpty)
                 Text(
-                  'No requirements added.',
+                  'No requirements yet. Add what students must submit.',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -235,13 +242,8 @@ class _AdminScreenState extends State<AdminScreen> {
                       setState(() => draft.isRequired = value),
                 ),
               if (_error != null) ...[
-                const SizedBox(height: 16),
-                Text(
-                  _error!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.error,
-                  ),
-                ),
+                const SizedBox(height: OrbitSpacing.lg),
+                OrbitNotice(message: _error!, icon: Icons.error_outline),
               ],
               const SizedBox(height: 32),
               FilledButton(
@@ -277,9 +279,9 @@ class _RequirementEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(top: 12),
+      margin: const EdgeInsets.only(top: OrbitSpacing.md),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(OrbitSpacing.lg),
         child: Column(
           children: [
             TextFormField(

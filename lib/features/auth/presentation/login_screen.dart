@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_constants.dart';
+import '../../../core/theme/app_tokens.dart';
+import '../../../core/widgets/orbit_mark.dart';
+import '../../../core/widgets/orbit_notice.dart';
 import '../../../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -41,7 +44,9 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = 'Something went wrong signing in. Please try again.';
+          _error =
+              'Sign-in did not go through. Check your connection and try '
+              'again.';
         });
       }
       return;
@@ -55,83 +60,61 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = OrbitTheme.of(context);
 
     return Scaffold(
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(OrbitSpacing.xl),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 400),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  const Center(child: OrbitMark(size: 60)),
+                  const SizedBox(height: OrbitSpacing.xl),
                   Text(
                     AppConstants.appName,
-                    style: theme.textTheme.headlineMedium,
+                    style: theme.textTheme.displaySmall,
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: OrbitSpacing.sm),
                   Text(
-                    AppConstants.appTagline,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                    'Track every placement drive at VIT, from registration '
+                    'to result.',
+                    style: theme.textTheme.bodyMedium,
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 40),
-                  FilledButton.icon(
-                    onPressed: _busy ? null : _signIn,
-                    icon: _busy
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.login),
-                    label: Text(
-                      _busy ? 'Signing in...' : 'Continue with Google',
+                  const SizedBox(height: OrbitSpacing.xxl),
+                  if (_error != null) ...[
+                    OrbitNotice(
+                      title: 'Use your VIT email',
+                      message: _error!,
+                      icon: Icons.badge_outlined,
                     ),
+                    const SizedBox(height: OrbitSpacing.lg),
+                  ],
+                  FilledButton(
+                    onPressed: _busy ? null : _signIn,
+                    child: _busy
+                        ? const SizedBox(
+                            width: 19,
+                            height: 19,
+                            child: CircularProgressIndicator(strokeWidth: 2.2),
+                          )
+                        : const Text('Continue with Google'),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: OrbitSpacing.lg),
                   Text(
                     'Sign in with your @${AppConstants.allowedEmailDomain} '
                     'account.',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                      color: colors.inkFaint,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  if (_error != null) ...[
-                    const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.errorContainer,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            size: 20,
-                            color: theme.colorScheme.onErrorContainer,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _error!,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onErrorContainer,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
                 ],
               ),
             ),

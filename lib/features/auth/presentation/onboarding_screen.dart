@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/session/session_controller.dart';
+import '../../../core/theme/app_tokens.dart';
+import '../../../core/widgets/orbit_notice.dart';
 import '../../../models/student.dart';
 import '../../../services/firestore_service.dart';
 
@@ -57,7 +59,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = 'Could not save your details. Please try again.';
+          _error =
+              'Your details did not save. Check your connection and tap '
+              'Continue again.';
         });
       }
     }
@@ -70,17 +74,23 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Finish setting up'),
+        automaticallyImplyLeading: false,
         actions: [
           TextButton(
             onPressed: _busy ? null : session.signOut,
             child: const Text('Sign out'),
           ),
+          const SizedBox(width: OrbitSpacing.sm),
         ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(
+            OrbitSpacing.xl,
+            OrbitSpacing.sm,
+            OrbitSpacing.xl,
+            OrbitSpacing.xl,
+          ),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
@@ -90,25 +100,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Text(
-                      'We need two more details before you can track drives.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
+                      'Two details and you are in',
+                      style: theme.textTheme.headlineSmall,
                     ),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: OrbitSpacing.sm),
+                    Text(
+                      'Orbit uses these to match you to the drives you are '
+                      'eligible for.',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: OrbitSpacing.xxl),
                     TextFormField(
                       controller: _neoIdController,
                       decoration: const InputDecoration(
                         labelText: 'NeoID',
-                        hintText: 'Your VIT NeoID',
+                        hintText: 'The ID you use for VTOP',
                       ),
                       textInputAction: TextInputAction.next,
                       validator: (value) =>
                           (value == null || value.trim().isEmpty)
-                          ? 'Enter your NeoID'
+                          ? 'Enter your NeoID so we can match your drives'
                           : null,
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: OrbitSpacing.lg),
                     TextFormField(
                       controller: _regNoController,
                       decoration: const InputDecoration(
@@ -121,25 +135,29 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           (value == null || value.trim().isEmpty)
                           ? 'Enter your registration number'
                           : null,
-                      onFieldSubmitted: (_) => _busy ? null : _submit(),
+                      onFieldSubmitted: (_) {
+                        if (!_busy) {
+                          _submit();
+                        }
+                      },
                     ),
                     if (_error != null) ...[
-                      const SizedBox(height: 16),
-                      Text(
-                        _error!,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.error,
-                        ),
+                      const SizedBox(height: OrbitSpacing.lg),
+                      OrbitNotice(
+                        message: _error!,
+                        icon: Icons.error_outline,
                       ),
                     ],
-                    const SizedBox(height: 32),
+                    const SizedBox(height: OrbitSpacing.xxl),
                     FilledButton(
                       onPressed: _busy ? null : _submit,
                       child: _busy
                           ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+                              width: 19,
+                              height: 19,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.2,
+                              ),
                             )
                           : const Text('Continue'),
                     ),

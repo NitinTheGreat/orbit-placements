@@ -10,7 +10,7 @@ lib/
 │   ├── constants/  app constants, the allowed email domain
 │   ├── routing/    go_router config and route names
 │   ├── session/    auth/session state that drives redirects
-│   ├── theme/      Material 3 light and dark themes
+│   ├── theme/      design tokens plus Material 3 light and dark themes
 │   └── widgets/    shared widgets
 ├── features/
 │   ├── auth/       splash, Google sign-in, onboarding, Gmail connect
@@ -18,6 +18,7 @@ lib/
 │   └── admin/      manual drive entry, admin-claim gated
 ├── models/         Company, Student, StudentCompanyStatus, GmailSync
 ├── services/       Firebase Auth, Firestore, and Gmail connect clients
+├── preview/        Firebase-free UI harness for previewing screens
 ├── firebase_options.dart
 └── main.dart
 
@@ -128,6 +129,59 @@ These paths cannot be covered by automated tests here, because they need a real 
 - `users.watch()` succeeds against the topic and the returned `historyId` and `expiration` land in `gmailSync`
 - the security rules actually reject a client write to `gmailSync` and any read of `gmailTokens`
 - the connect step is mandatory: a student who declines cannot reach the drive list
+
+## Design system
+
+Orbit is checked several times a day during a few high-stakes weeks, so the interface aims to be calm and legible rather than eventful. The organising idea is that **a drive is a deadline**: urgency is the primary visual signal, and everything else stays quiet so it can be read fast.
+
+### Colour
+
+Warm ink rather than blue-black, so long reading sessions feel less clinical. Amber carries achievement without reading as a tech-startup accent; coral and green are used only to mean something, never for decoration.
+
+| Token | Light | Dark | Used for |
+| --- | --- | --- | --- |
+| `surface` | `#F5F3EF` | `#1A1815` | Page ground |
+| `surfaceRaised` | `#FCFBF9` | `#232019` | Cards, inputs |
+| `surfaceSunken` | `#EBE7E0` | `#141210` | Wells, disabled |
+| `ink` | `#1A1815` | `#F5F3EF` | Primary text |
+| `inkMuted` | `#6B655C` | `#A39B8E` | Secondary text |
+| `inkFaint` | `#938C81` | `#7A736A` | Placeholders |
+| `border` | `#E2DDD4` | `#332E26` | Hairlines |
+| `accent` | `#C98A2B` | `#E0A945` | Button and badge fills |
+| `accentEdge` | `#AD741F` | `#E0A945` | Focus rings, mid-tier rail |
+| `accentInk` | `#7A5214` | `#F0D19A` | Amber text on wash |
+| `urgent` | `#D65F4C` | `#E87A66` | Rails, borders |
+| `urgentInk` | `#B33F2E` | `#E87A66` | Urgent text |
+| `success` | `#2F7A5C` | `#4E9E7B` | Fills |
+| `successInk` | `#2A6E53` | `#5AAD89` | Success text |
+
+Each colour is split into a fill and an ink because the fills do not carry text contrast on their own. Amber `#C98A2B` measures only **2.65:1** on the light ground, so it is never used as a foreground: `accentEdge` (3.84:1) draws focus rings and rails, and `accentInk` (5.85:1 on its wash) carries text. The same split applies to coral and green — raw `urgent` on its wash is 3.12:1, while `urgentInk` reaches 4.77:1. Every text and edge pair in the app was measured; all clear WCAG AA for their size class.
+
+### Type
+
+Space Grotesk for display and titles, IBM Plex Sans for body and data. Numbers that get compared down a column — deadlines, CTC — use tabular figures so digits line up.
+
+### Radius
+
+Deliberately unequal: `card` 18, `sheet` 20, `control` 12, `rail` 3, `pill` for badges. Chips read as tokens, cards read as surfaces.
+
+### What the design avoids
+
+No gradients, no glassmorphism, and no uniform drop shadows — cards are separated by a hairline border and a slight lift in surface tone instead. Cards are **not** identical: a drive closing within two days takes a coral border and a coral rail, so the list is scannable without reading a word. No all-caps eyebrow labels, no middot-joined metadata, no arrows appended to button labels.
+
+### Motion
+
+`flutter_animate` runs one staggered entrance on the drive list (45ms apart, 320ms fade and rise) and nowhere else. A `Hero` carries the company name between list and detail. Taps use a spring scale via `Pressable`. A status badge change animates only the badge, through an `AnimatedSwitcher`, rather than rebuilding the card. Every one of these checks `prefersReducedMotion` first and renders statically when the platform asks for reduced motion.
+
+### Previewing the UI
+
+The real screens construct Firebase services, so they cannot render before `flutterfire configure` has been run. `lib/preview/preview_app.dart` is a harness that renders the genuine widgets against sample data with no Firebase at all:
+
+```bash
+flutter run --target=lib/preview/preview_app.dart
+```
+
+It has a light/dark toggle in the header.
 
 ## Implemented
 

@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/routing/app_routes.dart';
+import '../../../core/theme/app_tokens.dart';
+import '../../../core/widgets/orbit_notice.dart';
 import '../../../core/widgets/status_chip.dart';
+import '../../../core/widgets/urgency_rail.dart';
 import '../../../models/company.dart';
 import '../../../services/firestore_service.dart';
 import 'company_format.dart';
@@ -24,108 +27,242 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colors = OrbitTheme.of(context);
+
     return Scaffold(
       appBar: AppBar(
+        leadingWidth: 56,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back, size: 21),
+          color: colors.ink,
           onPressed: () => context.goNamed(AppRoutes.companies),
         ),
-        title: const Text('Drive details'),
+        title: Text('Drive', style: Theme.of(context).textTheme.titleMedium),
       ),
       body: StreamBuilder<Company?>(
         stream: _company,
         builder: (context, snapshot) {
           if (snapshot.hasError) {
-            return const _CenteredMessage('Could not load this drive.');
+            return const OrbitEmptyState(
+              icon: Icons.wifi_off_outlined,
+              headline: 'This drive did not load',
+              guidance:
+                  'Check your connection and open it again from your list.',
+            );
           }
-          if (!snapshot.hasData && snapshot.connectionState != ConnectionState.active) {
-            return const Center(child: CircularProgressIndicator());
+          if (!snapshot.hasData &&
+              snapshot.connectionState != ConnectionState.active) {
+            return const Center(
+              child: SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.2),
+              ),
+            );
           }
 
           final company = snapshot.data;
           if (company == null) {
-            return const _CenteredMessage('This drive no longer exists.');
+            return const OrbitEmptyState(
+              icon: Icons.inbox_outlined,
+              headline: 'This drive was removed',
+              guidance:
+                  'The placement cell took it down. Head back to see what is '
+                  'still open.',
+            );
           }
 
-          return _CompanyDetailBody(company: company);
+          return _DetailBody(company: company);
         },
       ),
     );
   }
 }
 
-class _CompanyDetailBody extends StatelessWidget {
-  const _CompanyDetailBody({required this.company});
+class _DetailBody extends StatelessWidget {
+  const _DetailBody({required this.company});
 
   final Company company;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = OrbitTheme.of(context);
+    final urgency = deadlineUrgency(company.registrationDeadline);
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(
+        OrbitSpacing.xl,
+        OrbitSpacing.sm,
+        OrbitSpacing.xl,
+        OrbitSpacing.xxl,
+      ),
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: Text(company.name, style: theme.textTheme.headlineSmall),
-            ),
-            StatusChip(status: company.status),
-          ],
+        Hero(
+          tag: 'company-name-${company.id}',
+          child: Material(
+            type: MaterialType.transparency,
+            child: Text(company.name, style: theme.textTheme.displaySmall),
+          ),
         ),
         if (company.category.isNotEmpty) ...[
-          const SizedBox(height: 4),
-          Text(
-            company.category,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
+          const SizedBox(height: OrbitSpacing.xs),
+          Text(company.category, style: theme.textTheme.bodyMedium),
         ],
-        const SizedBox(height: 24),
-        _DetailRow(label: 'CTC', value: company.ctc),
-        _DetailRow(label: 'Stipend', value: company.stipend),
-        _DetailRow(
-          label: 'Registration deadline',
-          value: CompanyFormat.dateTime(company.registrationDeadline),
+        const SizedBox(height: OrbitSpacing.lg),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: StatusChip(status: company.status),
         ),
-        _DetailRow(
-          label: 'Visit date',
-          value: CompanyFormat.date(company.visitDate),
+        const SizedBox(height: OrbitSpacing.xl),
+        _DeadlineCard(
+          deadline: company.registrationDeadline,
+          urgency: urgency,
         ),
-        _DetailRow(
-          label: 'Eligible branches',
-          value: company.eligibleBranches.isEmpty
-              ? null
-              : company.eligibleBranches.join(', '),
+        const SizedBox(height: OrbitSpacing.xl),
+        _Section(
+          title: 'The offer',
+          children: [
+            _Fact(label: 'CTC', value: company.ctc),
+            _Fact(label: 'Stipend', value: company.stipend),
+          ],
         ),
-        _DetailRow(
-          label: 'Eligibility criteria',
-          value: company.eligibilityCriteria,
+        const SizedBox(height: OrbitSpacing.xl),
+        _Section(
+          title: 'Who can apply',
+          children: [
+            _Fact(
+              label: 'Branches',
+              value: company.eligibleBranches.isEmpty
+                  ? null
+                  : company.eligibleBranches.join(', '),
+            ),
+            _Fact(label: 'Criteria', value: company.eligibilityCriteria),
+            _Fact(
+              label: 'Visits campus',
+              value: company.visitDate == null
+                  ? null
+                  : CompanyFormat.date(company.visitDate),
+            ),
+          ],
         ),
-        const SizedBox(height: 24),
-        Text('Requirements', style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
+        const SizedBox(height: OrbitSpacing.xl),
+        Text('What you need to submit', style: theme.textTheme.titleLarge),
+        const SizedBox(height: OrbitSpacing.md),
         if (company.requirements.isEmpty)
-          Text(
-            'No requirements listed for this drive.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          Container(
+            padding: const EdgeInsets.all(OrbitSpacing.lg),
+            decoration: BoxDecoration(
+              color: colors.surfaceSunken,
+              borderRadius: BorderRadius.circular(OrbitRadius.control),
+            ),
+            child: Text(
+              'Nothing listed yet. Check your mail for the registration form.',
+              style: theme.textTheme.bodySmall,
             ),
           )
         else
           ...company.requirements.map(
-            (requirement) => _RequirementTile(requirement: requirement),
+            (requirement) => _RequirementRow(requirement: requirement),
           ),
       ],
     );
   }
 }
 
-class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value});
+class _DeadlineCard extends StatelessWidget {
+  const _DeadlineCard({required this.deadline, required this.urgency});
+
+  final DateTime? deadline;
+  final DeadlineUrgency urgency;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = OrbitTheme.of(context);
+    final pressing = urgency.isPressing;
+    final tint = pressing ? colors.urgentInk : urgencyColor(urgency, colors);
+
+    return Container(
+      padding: const EdgeInsets.all(OrbitSpacing.lg),
+      decoration: BoxDecoration(
+        color: pressing ? colors.urgentWash : colors.surfaceRaised,
+        borderRadius: BorderRadius.circular(OrbitRadius.card),
+        border: Border.all(
+          color: pressing ? colors.urgent.withValues(alpha: 0.4) : colors.border,
+        ),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            UrgencyRail(urgency: urgency),
+            const SizedBox(width: OrbitSpacing.lg),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Registration closes',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: pressing ? tint : colors.inkMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    CompanyFormat.deadlineLabel(deadline),
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: pressing ? tint : colors.ink,
+                    ),
+                  ),
+                  if (deadline != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      CompanyFormat.dateTime(deadline),
+                      style: theme.textTheme.labelMedium,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Section extends StatelessWidget {
+  const _Section({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = OrbitTheme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: theme.textTheme.titleLarge),
+        const SizedBox(height: OrbitSpacing.md),
+        Container(
+          decoration: BoxDecoration(
+            color: colors.surfaceRaised,
+            borderRadius: BorderRadius.circular(OrbitRadius.card),
+            border: Border.all(color: colors.border),
+          ),
+          child: Column(children: children),
+        ),
+      ],
+    );
+  }
+}
+
+class _Fact extends StatelessWidget {
+  const _Fact({required this.label, required this.value});
 
   final String label;
   final String? value;
@@ -133,95 +270,114 @@ class _DetailRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final display = (value == null || value!.isEmpty) ? 'Not set' : value!;
+    final colors = OrbitTheme.of(context);
+    final missing = value == null || value!.isEmpty;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: OrbitSpacing.lg,
+        vertical: OrbitSpacing.md,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 150,
+            width: 104,
+            child: Text(label, style: theme.textTheme.bodySmall),
+          ),
+          Expanded(
             child: Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+              missing ? 'Not announced' : value!,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontSize: 15,
+                color: missing ? colors.inkFaint : colors.ink,
               ),
             ),
           ),
-          Expanded(child: Text(display, style: theme.textTheme.bodyMedium)),
         ],
       ),
     );
   }
 }
 
-class _RequirementTile extends StatelessWidget {
-  const _RequirementTile({required this.requirement});
+class _RequirementRow extends StatelessWidget {
+  const _RequirementRow({required this.requirement});
 
   final CompanyRequirement requirement;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = OrbitTheme.of(context);
     final hasUrl = requirement.url != null && requirement.url!.isNotEmpty;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+    return Container(
+      margin: const EdgeInsets.only(bottom: OrbitSpacing.sm),
+      padding: const EdgeInsets.all(OrbitSpacing.lg),
+      decoration: BoxDecoration(
+        color: colors.surfaceRaised,
+        borderRadius: BorderRadius.circular(OrbitRadius.control),
+        border: Border.all(color: colors.border),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            requirement.isRequired
-                ? Icons.check_box_outline_blank
-                : Icons.remove_circle_outline,
-            size: 20,
-            color: requirement.isRequired
-                ? theme.colorScheme.primary
-                : theme.colorScheme.onSurfaceVariant,
+          Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: requirement.isRequired
+                  ? colors.accentWash
+                  : colors.surfaceSunken,
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: Icon(
+              requirement.isRequired ? Icons.priority_high : Icons.remove,
+              size: 14,
+              color: requirement.isRequired
+                  ? colors.accentInk
+                  : colors.inkFaint,
+            ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: OrbitSpacing.md),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  requirement.label.isEmpty ? requirement.type : requirement.label,
-                  style: theme.textTheme.bodyMedium,
+                  requirement.label.isEmpty
+                      ? requirement.type
+                      : requirement.label,
+                  style: theme.textTheme.bodyLarge?.copyWith(fontSize: 15),
                 ),
+                const SizedBox(height: 1),
                 Text(
-                  requirement.isRequired ? 'Required' : 'Optional',
+                  requirement.isRequired
+                      ? 'Required to be considered'
+                      : 'Optional',
                   style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                    color: requirement.isRequired
+                        ? colors.accentInk
+                        : colors.inkFaint,
                   ),
                 ),
-                if (hasUrl)
+                if (hasUrl) ...[
+                  const SizedBox(height: OrbitSpacing.sm),
                   Text(
                     requirement.url!,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.primary,
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colors.accentInk,
+                      decoration: TextDecoration.underline,
+                      decorationColor: colors.accentInk.withValues(alpha: 0.4),
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                ],
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _CenteredMessage extends StatelessWidget {
-  const _CenteredMessage(this.message);
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Text(message, textAlign: TextAlign.center),
       ),
     );
   }

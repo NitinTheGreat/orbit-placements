@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/session/session_controller.dart';
+import '../../../core/theme/app_tokens.dart';
+import '../../../core/widgets/orbit_notice.dart';
 import '../../../services/gmail_connect_service.dart';
 
 class GmailConnectScreen extends StatefulWidget {
@@ -46,7 +48,9 @@ class _GmailConnectScreenState extends State<GmailConnectScreen> {
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = 'Could not connect Gmail. Please try again.';
+          _error =
+              'Gmail did not finish connecting. Check your connection and '
+              'try again.';
         });
       }
       return;
@@ -60,84 +64,105 @@ class _GmailConnectScreenState extends State<GmailConnectScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = OrbitTheme.of(context);
     final session = SessionScope.of(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Connect Gmail'),
+        automaticallyImplyLeading: false,
         actions: [
           TextButton(
             onPressed: _busy ? null : session.signOut,
             child: const Text('Sign out'),
           ),
+          const SizedBox(width: OrbitSpacing.sm),
         ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.fromLTRB(
+            OrbitSpacing.xl,
+            OrbitSpacing.sm,
+            OrbitSpacing.xl,
+            OrbitSpacing.xl,
+          ),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 440),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Icon(
-                    Icons.mark_email_read_outlined,
-                    size: 48,
-                    color: theme.colorScheme.primary,
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Orbit reads your placement mail',
-                    style: theme.textTheme.titleLarge,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Orbit needs read-only access to your VIT inbox to track '
-                    'registrations, PPTs, shortlists, and OA invites for you. '
-                    'It never sends mail and never changes anything in your '
-                    'mailbox.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                  Container(
+                    width: 54,
+                    height: 54,
+                    decoration: BoxDecoration(
+                      color: colors.accentWash,
+                      borderRadius: BorderRadius.circular(OrbitRadius.card),
                     ),
-                    textAlign: TextAlign.center,
+                    child: Icon(
+                      Icons.mark_email_read_outlined,
+                      size: 25,
+                      color: colors.accentInk,
+                    ),
                   ),
-                  const SizedBox(height: 32),
-                  if (_declined)
-                    _NoticeCard(
-                      background: theme.colorScheme.errorContainer,
-                      foreground: theme.colorScheme.onErrorContainer,
-                      icon: Icons.block,
+                  const SizedBox(height: OrbitSpacing.xl),
+                  Text(
+                    'Let Orbit read your placement mail',
+                    style: theme.textTheme.headlineSmall,
+                  ),
+                  const SizedBox(height: OrbitSpacing.sm),
+                  Text(
+                    'Orbit watches your VIT inbox for drive announcements, '
+                    'shortlists, and OA invites, so you never have to dig '
+                    'through mail to find out what changed.',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: OrbitSpacing.xl),
+                  const _Assurance(
+                    icon: Icons.visibility_outlined,
+                    text: 'Read-only. Orbit never sends or deletes mail.',
+                  ),
+                  const _Assurance(
+                    icon: Icons.filter_alt_outlined,
+                    text: 'Only placement mail is used. Nothing else is read.',
+                  ),
+                  const _Assurance(
+                    icon: Icons.lock_outline,
+                    text: 'You can disconnect from Google at any time.',
+                  ),
+                  const SizedBox(height: OrbitSpacing.xl),
+                  if (_declined) ...[
+                    const OrbitNotice(
+                      title: 'Orbit needs this to work',
                       message:
-                          'Gmail access was not granted. Orbit cannot track '
-                          'your drives without it, so this step cannot be '
-                          'skipped.',
+                          'Without inbox access there is nothing to track, so '
+                          'this step cannot be skipped. Grant access to '
+                          'continue.',
+                      icon: Icons.block_outlined,
                     ),
-                  if (_error != null)
-                    _NoticeCard(
-                      background: theme.colorScheme.errorContainer,
-                      foreground: theme.colorScheme.onErrorContainer,
-                      icon: Icons.error_outline,
+                    const SizedBox(height: OrbitSpacing.lg),
+                  ],
+                  if (_error != null) ...[
+                    OrbitNotice(
+                      title: 'Could not connect',
                       message: _error!,
+                      icon: Icons.error_outline,
                     ),
-                  if (_declined || _error != null) const SizedBox(height: 16),
-                  FilledButton.icon(
+                    const SizedBox(height: OrbitSpacing.lg),
+                  ],
+                  FilledButton(
                     onPressed: _busy ? null : _connect,
-                    icon: _busy
+                    child: _busy
                         ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            width: 19,
+                            height: 19,
+                            child: CircularProgressIndicator(strokeWidth: 2.2),
                           )
-                        : const Icon(Icons.link),
-                    label: Text(
-                      _busy
-                          ? 'Connecting...'
-                          : (_declined || _error != null)
-                          ? 'Try again'
-                          : 'Connect Gmail',
-                    ),
+                        : Text(
+                            _declined || _error != null
+                                ? 'Try again'
+                                : 'Connect Gmail',
+                          ),
                   ),
                 ],
               ),
@@ -149,38 +174,28 @@ class _GmailConnectScreenState extends State<GmailConnectScreen> {
   }
 }
 
-class _NoticeCard extends StatelessWidget {
-  const _NoticeCard({
-    required this.background,
-    required this.foreground,
-    required this.icon,
-    required this.message,
-  });
+class _Assurance extends StatelessWidget {
+  const _Assurance({required this.icon, required this.text});
 
-  final Color background;
-  final Color foreground;
   final IconData icon;
-  final String message;
+  final String text;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = OrbitTheme.of(context);
 
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(12),
-      ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: OrbitSpacing.md),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: foreground),
-          const SizedBox(width: 8),
+          Icon(icon, size: 17, color: colors.successInk),
+          const SizedBox(width: OrbitSpacing.md),
           Expanded(
             child: Text(
-              message,
-              style: theme.textTheme.bodySmall?.copyWith(color: foreground),
+              text,
+              style: theme.textTheme.bodySmall?.copyWith(color: colors.ink),
             ),
           ),
         ],

@@ -40,6 +40,8 @@ dependencies:
   cloud_firestore: ^6.9.0
   google_sign_in: ^7.2.0
   cloud_functions: ^6.4.0
+  google_fonts: ^8.2.1
+  flutter_animate: ^4.5.2
 
 dev_dependencies:
   flutter_test:
