@@ -323,6 +323,14 @@ reaches shell history and Secret Manager stores the exact bytes.
 - `syncNow` callable behind a 30 second per-student server-side cooldown, wired
   to pull-to-refresh on the drive list
 - Per-drive tracking toggle on company detail
+- Cursor-paginated drive list, twenty at a time, each page its own live
+  snapshot listener so badges stay current without watching the whole
+  collection
+- Pull to refresh, which runs `syncNow` and re-fetches the first page
+- Rounds timeline on company detail, showing each round and this student's
+  result for it
+- Empty states that distinguish a disconnected inbox from an empty directory
+  from having tracking switched off everywhere
 
 ## Pending
 

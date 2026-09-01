@@ -51,6 +51,19 @@ class FirestoreService {
         );
   }
 
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchCompanyPage({
+    DocumentSnapshot<Map<String, dynamic>>? startAfter,
+    int limit = 20,
+  }) {
+    Query<Map<String, dynamic>> query = _companies
+        .orderBy('registrationDeadline')
+        .limit(limit);
+    if (startAfter != null) {
+      query = query.startAfterDocument(startAfter);
+    }
+    return query.snapshots();
+  }
+
   Stream<Company?> watchCompany(String companyId) {
     return _companies
         .doc(companyId)

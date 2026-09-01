@@ -92,6 +92,23 @@ class _DetailBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final session = SessionScope.of(context);
+    final studentId = session.user?.uid;
+
+    if (studentId == null) {
+      return _content(context, null);
+    }
+
+    return StreamBuilder<StudentCompanyStatus?>(
+      stream: firestoreService.watchStatus(
+        studentId: studentId,
+        companyId: company.id,
+      ),
+      builder: (context, snapshot) => _content(context, snapshot.data),
+    );
+  }
+
+  Widget _content(BuildContext context, StudentCompanyStatus? status) {
     final theme = Theme.of(context);
     final colors = OrbitTheme.of(context);
     final urgency = deadlineUrgency(company.registrationDeadline);
@@ -121,7 +138,11 @@ class _DetailBody extends StatelessWidget {
           child: StatusChip(status: company.status),
         ),
         const SizedBox(height: OrbitSpacing.xl),
-        _TrackingToggle(company: company, firestoreService: firestoreService),
+        _TrackingToggle(
+          company: company,
+          firestoreService: firestoreService,
+          status: status,
+        ),
         const SizedBox(height: OrbitSpacing.xl),
         _DeadlineCard(deadline: company.registrationDeadline, urgency: urgency),
         const SizedBox(height: OrbitSpacing.xl),
@@ -152,6 +173,8 @@ class _DetailBody extends StatelessWidget {
           ],
         ),
         const SizedBox(height: OrbitSpacing.xl),
+        _RoundsTimeline(company: company, status: status),
+        const SizedBox(height: OrbitSpacing.xl),
         Text('What you need to submit', style: theme.textTheme.titleLarge),
         const SizedBox(height: OrbitSpacing.md),
         if (company.requirements.isEmpty)
@@ -179,10 +202,12 @@ class _TrackingToggle extends StatelessWidget {
   const _TrackingToggle({
     required this.company,
     required this.firestoreService,
+    required this.status,
   });
 
   final Company company;
   final FirestoreService firestoreService;
+  final StudentCompanyStatus? status;
 
   @override
   Widget build(BuildContext context) {
@@ -195,43 +220,207 @@ class _TrackingToggle extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    return StreamBuilder<StudentCompanyStatus?>(
-      stream: firestoreService.watchStatus(
-        studentId: studentId,
-        companyId: company.id,
-      ),
-      builder: (context, snapshot) {
-        final status = snapshot.data;
-        final tracking = status?.optedIn ?? true;
+    final tracking = status?.optedIn ?? true;
 
-        return Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: OrbitSpacing.lg,
-            vertical: OrbitSpacing.sm,
-          ),
-          decoration: BoxDecoration(
-            color: colors.surfaceRaised,
-            borderRadius: BorderRadius.circular(OrbitRadius.card),
-            border: Border.all(color: colors.border),
-          ),
-          child: SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text('Track this drive', style: theme.textTheme.labelLarge),
-            subtitle: Text(
-              tracking
-                  ? 'Orbit updates your progress from your mail.'
-                  : 'Orbit ignores this drive when reading your mail.',
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: OrbitSpacing.lg,
+        vertical: OrbitSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: colors.surfaceRaised,
+        borderRadius: BorderRadius.circular(OrbitRadius.card),
+        border: Border.all(color: colors.border),
+      ),
+      child: SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        title: Text('Track this drive', style: theme.textTheme.labelLarge),
+        subtitle: Text(
+          tracking
+              ? 'Orbit updates your progress from your mail.'
+              : 'Orbit ignores this drive when reading your mail.',
+          style: theme.textTheme.bodySmall,
+        ),
+        value: tracking,
+        onChanged: (value) => firestoreService.setOptedIn(
+          studentId: studentId,
+          companyId: company.id,
+          optedIn: value,
+        ),
+      ),
+    );
+  }
+}
+
+class _RoundsTimeline extends StatelessWidget {
+  const _RoundsTimeline({required this.company, required this.status});
+
+  final Company company;
+  final StudentCompanyStatus? status;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = OrbitTheme.of(context);
+    final rounds = company.orderedRounds;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Rounds', style: theme.textTheme.titleLarge),
+        const SizedBox(height: OrbitSpacing.md),
+        if (rounds.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(OrbitSpacing.lg),
+            decoration: BoxDecoration(
+              color: colors.surfaceSunken,
+              borderRadius: BorderRadius.circular(OrbitRadius.control),
+            ),
+            child: Text(
+              'No rounds announced yet. Orbit adds them as the placement cell '
+              'sends them out.',
               style: theme.textTheme.bodySmall,
             ),
-            value: tracking,
-            onChanged: (value) => firestoreService.setOptedIn(
-              studentId: studentId,
-              companyId: company.id,
-              optedIn: value,
+          )
+        else
+          for (int index = 0; index < rounds.length; index++)
+            _RoundRow(
+              round: rounds[index],
+              entry: status?.entryFor(rounds[index].id),
+              isLast: index == rounds.length - 1,
             ),
+      ],
+    );
+  }
+}
+
+class _RoundRow extends StatelessWidget {
+  const _RoundRow({
+    required this.round,
+    required this.entry,
+    required this.isLast,
+  });
+
+  final CompanyRound round;
+  final RoundHistoryEntry? entry;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = OrbitTheme.of(context);
+    final result = entry?.result;
+
+    final (Color dot, Color wash, Color ink, IconData icon) = switch (result) {
+      RoundResult.cleared => (
+        colors.successInk,
+        colors.successWash,
+        colors.successInk,
+        Icons.check,
+      ),
+      RoundResult.rejected => (
+        colors.urgentInk,
+        colors.urgentWash,
+        colors.urgentInk,
+        Icons.close,
+      ),
+      RoundResult.invited => (
+        colors.accentEdge,
+        colors.accentWash,
+        colors.accentInk,
+        Icons.arrow_forward,
+      ),
+      RoundResult.pending => (
+        colors.inkMuted,
+        colors.surfaceSunken,
+        colors.inkMuted,
+        Icons.hourglass_empty,
+      ),
+      null => (
+        colors.borderStrong,
+        colors.surfaceSunken,
+        colors.inkFaint,
+        Icons.remove,
+      ),
+    };
+
+    return Stack(
+      children: [
+        if (!isLast)
+          Positioned(
+            left: 12.25,
+            top: 26,
+            bottom: 0,
+            child: Container(width: 1.5, color: colors.border),
           ),
-        );
-      },
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: wash,
+                shape: BoxShape.circle,
+                border: Border.all(color: dot, width: 1.4),
+              ),
+              child: Icon(icon, size: 14, color: ink),
+            ),
+            const SizedBox(width: OrbitSpacing.md),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: isLast ? 0 : OrbitSpacing.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            round.name,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: OrbitSpacing.sm),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: OrbitSpacing.sm,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: wash,
+                            borderRadius: BorderRadius.circular(
+                              OrbitRadius.pill,
+                            ),
+                          ),
+                          child: Text(
+                            result?.label ?? 'Not announced for you',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: ink,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      round.announcedAt == null
+                          ? round.type.label
+                          : '${round.type.label}, announced '
+                                '${CompanyFormat.date(round.announcedAt)}',
+                      style: theme.textTheme.labelSmall,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

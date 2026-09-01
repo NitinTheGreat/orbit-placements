@@ -7,11 +7,15 @@ import '../../../core/session/session_controller.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/widgets/orbit_notice.dart';
 import '../../../core/widgets/pressable.dart';
-import '../../../models/company.dart';
 import '../../../models/gmail_sync.dart';
+import '../../../models/student_company_status.dart';
 import '../../../services/firestore_service.dart';
 import '../../../services/sync_service.dart';
+import 'company_page_controller.dart';
+import 'drive_list_empty_state.dart';
 import 'widgets/drive_card.dart';
+
+const double _loadMoreThreshold = 400;
 
 class CompanyListScreen extends StatefulWidget {
   const CompanyListScreen({super.key});
@@ -23,8 +27,42 @@ class CompanyListScreen extends StatefulWidget {
 class _CompanyListScreenState extends State<CompanyListScreen> {
   final FirestoreService _firestoreService = FirestoreService();
   final SyncService _syncService = SyncService();
-  late final Stream<List<Company>> _companies = _firestoreService
-      .watchCompanies();
+  final CompanyPageController _controller = CompanyPageController();
+  final ScrollController _scrollController = ScrollController();
+
+  bool _showAllDespiteOptOut = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.start();
+    _controller.addListener(_onControllerChanged);
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _controller.removeListener(_onControllerChanged);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onControllerChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+    final position = _scrollController.position;
+    if (position.pixels >= position.maxScrollExtent - _loadMoreThreshold) {
+      _controller.loadMore();
+    }
+  }
 
   Future<void> _refresh() async {
     try {
@@ -35,6 +73,15 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
             .showSnackBar(SnackBar(content: Text(error.message)));
       }
     }
+    await _controller.refresh();
+  }
+
+  static String? _firstName(String? name) {
+    final trimmed = name?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+    return trimmed.split(RegExp(r'\s+')).first;
   }
 
   @override
@@ -43,6 +90,7 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
     final colors = OrbitTheme.of(context);
     final session = SessionScope.of(context);
     final firstName = _firstName(session.student?.name);
+    final studentId = session.user?.uid;
 
     return Scaffold(
       body: SafeArea(
@@ -103,96 +151,188 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
                 ),
                 child: _GmailBanner(status: session.gmailSync.status),
               ),
-            Expanded(child: _buildList()),
+            Expanded(
+              child: studentId == null
+                  ? const SizedBox.shrink()
+                  : StreamBuilder<List<StudentCompanyStatus>>(
+                      stream: _firestoreService.watchStatusesForStudent(
+                        studentId,
+                      ),
+                      builder: (context, snapshot) {
+                        final optedOutCount = (snapshot.data ?? [])
+                            .where((status) => status.isOptedOut)
+                            .length;
+                        return _buildBody(
+                          gmailConnected: session.gmailSync.isConnected,
+                          optedOutCount: optedOutCount,
+                        );
+                      },
+                    ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  static String? _firstName(String? name) {
-    final trimmed = name?.trim();
-    if (trimmed == null || trimmed.isEmpty) {
-      return null;
+  Widget _buildBody({
+    required bool gmailConnected,
+    required int optedOutCount,
+  }) {
+    if (_controller.error != null) {
+      return RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          controller: _scrollController,
+          children: const [
+            SizedBox(height: 80),
+            OrbitEmptyState(
+              icon: Icons.wifi_off_outlined,
+              headline: 'Drives did not load',
+              guidance:
+                  'Check your connection and pull down to try again. Your '
+                  'saved drives are still safe.',
+            ),
+          ],
+        ),
+      );
     }
-    return trimmed.split(RegExp(r'\s+')).first;
-  }
 
-  Widget _buildList() {
-    return StreamBuilder<List<Company>>(
-      stream: _companies,
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return const OrbitEmptyState(
-            icon: Icons.wifi_off_outlined,
-            headline: 'Drives did not load',
-            guidance:
-                'Check your connection and pull down to try again. Your saved '
-                'drives are still safe.',
-          );
-        }
+    if (_controller.isLoading) {
+      return const Center(
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(strokeWidth: 2.2),
+        ),
+      );
+    }
 
-        if (!snapshot.hasData) {
-          return const Center(
-            child: SizedBox(
-              width: 22,
-              height: 22,
-              child: CircularProgressIndicator(strokeWidth: 2.2),
+    final companies = _controller.companies;
+    final emptyState = _showAllDespiteOptOut
+        ? null
+        : resolveEmptyState(
+            gmailConnected: gmailConnected,
+            companyCount: companies.length,
+            optedOutOfAll: everyDriveOptedOut(
+              companyCount: companies.length,
+              optedOutCount: optedOutCount,
             ),
           );
-        }
 
-        final companies = snapshot.data!;
-        if (companies.isEmpty) {
-          return const OrbitEmptyState(
-            icon: Icons.calendar_today_outlined,
-            headline: 'No drives yet',
-            guidance:
-                'When a company opens registrations, it lands here with its '
-                'deadline and what you need to submit.',
-          );
-        }
-
-        final reduceMotion = prefersReducedMotion(context);
-
-        return RefreshIndicator(
-          onRefresh: _refresh,
-          child: ListView.separated(
-            padding: const EdgeInsets.fromLTRB(
-              OrbitSpacing.lg,
-              OrbitSpacing.xs,
-              OrbitSpacing.lg,
-              OrbitSpacing.xxl,
+    if (emptyState != null) {
+      return RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          controller: _scrollController,
+          children: [
+            const SizedBox(height: 60),
+            _EmptyStateView(
+              state: emptyState,
+              onShowAll: () => setState(() => _showAllDespiteOptOut = true),
             ),
-            itemCount: companies.length,
-            separatorBuilder: (context, index) =>
-                const SizedBox(height: OrbitSpacing.md),
-            itemBuilder: (context, index) {
-              final company = companies[index];
-              final card = DriveCard(
-                company: company,
-                onTap: () => context.goNamed(
-                  AppRoutes.companyDetail,
-                  pathParameters: {'companyId': company.id},
+          ],
+        ),
+      );
+    }
+
+    final reduceMotion = prefersReducedMotion(context);
+
+    return RefreshIndicator(
+      onRefresh: _refresh,
+      child: ListView.separated(
+        controller: _scrollController,
+        padding: const EdgeInsets.fromLTRB(
+          OrbitSpacing.lg,
+          OrbitSpacing.xs,
+          OrbitSpacing.lg,
+          OrbitSpacing.xxl,
+        ),
+        itemCount: companies.length + (_controller.hasMore ? 1 : 0),
+        separatorBuilder: (context, index) =>
+            const SizedBox(height: OrbitSpacing.md),
+        itemBuilder: (context, index) {
+          if (index >= companies.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: OrbitSpacing.xl),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2.2),
                 ),
+              ),
+            );
+          }
+
+          final company = companies[index];
+          final card = DriveCard(
+            company: company,
+            onTap: () => context.goNamed(
+              AppRoutes.companyDetail,
+              pathParameters: {'companyId': company.id},
+            ),
+          );
+          if (reduceMotion || index >= _controller.pageSize) {
+            return card;
+          }
+          return card
+              .animate(delay: OrbitMotion.stagger * index)
+              .fadeIn(duration: OrbitMotion.entrance)
+              .slideY(
+                begin: 0.08,
+                end: 0,
+                duration: OrbitMotion.entrance,
+                curve: OrbitMotion.settle,
               );
-              if (reduceMotion) {
-                return card;
-              }
-              return card
-                  .animate(delay: OrbitMotion.stagger * index)
-                  .fadeIn(duration: OrbitMotion.entrance)
-                  .slideY(
-                    begin: 0.08,
-                    end: 0,
-                    duration: OrbitMotion.entrance,
-                    curve: OrbitMotion.settle,
-                  );
-            },
+        },
+      ),
+    );
+  }
+}
+
+class _EmptyStateView extends StatelessWidget {
+  const _EmptyStateView({required this.state, required this.onShowAll});
+
+  final DriveListEmptyState state;
+  final VoidCallback onShowAll;
+
+  @override
+  Widget build(BuildContext context) {
+    switch (state) {
+      case DriveListEmptyState.gmailDisconnected:
+        return OrbitEmptyState(
+          icon: Icons.mark_email_unread_outlined,
+          headline: 'Connect Gmail to start tracking',
+          guidance:
+              'Orbit reads your placement mail to build this list. Reconnect '
+              'and your drives appear here on their own.',
+          action: FilledButton(
+            onPressed: () => context.goNamed(AppRoutes.gmailConnect),
+            child: const Text('Connect Gmail'),
           ),
         );
-      },
-    );
+      case DriveListEmptyState.noDrives:
+        return const OrbitEmptyState(
+          icon: Icons.calendar_today_outlined,
+          headline: 'No drives yet',
+          guidance:
+              'Orbit is watching your inbox. When the placement cell opens a '
+              'drive, it lands here with its deadline and what to submit.',
+        );
+      case DriveListEmptyState.allOptedOut:
+        return OrbitEmptyState(
+          icon: Icons.notifications_off_outlined,
+          headline: 'Tracking is off everywhere',
+          guidance:
+              'Orbit is ignoring every drive it knows about. Open one and turn '
+              'tracking back on to follow your rounds again.',
+          action: OutlinedButton(
+            onPressed: onShowAll,
+            child: const Text('Show all drives'),
+          ),
+        );
+    }
   }
 }
 

@@ -163,6 +163,31 @@ void main() {
       );
     });
 
+    test('entryFor finds this student result for a round', () {
+      const status = StudentCompanyStatus(
+        studentId: 'u',
+        companyId: 'c',
+        roundHistory: [
+          RoundHistoryEntry(roundId: 'ppt', result: RoundResult.cleared),
+          RoundHistoryEntry(roundId: 'oa', result: RoundResult.rejected),
+        ],
+      );
+
+      expect(status.entryFor('ppt')?.result, RoundResult.cleared);
+      expect(status.entryFor('oa')?.result, RoundResult.rejected);
+      expect(status.entryFor('interview'), isNull);
+    });
+
+    test('roundById resolves a round the timeline renders', () {
+      final company = companyWithRounds(const [
+        CompanyRound(id: 'ppt', name: 'PPT', order: 1, type: RoundType.ppt),
+      ]);
+
+      expect(company.roundById('ppt')?.name, 'PPT');
+      expect(company.roundById('missing'), isNull);
+      expect(company.roundById(null), isNull);
+    });
+
     test('optedIn is three-state', () {
       const unset = StudentCompanyStatus(studentId: 'u', companyId: 'c');
       expect(unset.optedIn, isNull);
