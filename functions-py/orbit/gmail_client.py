@@ -146,7 +146,7 @@ class GmailClient:
         profile = self._service.users().getProfile(userId="me").execute()
         return profile.get("historyId")
 
-    def watch(self, topic_name: str) -> dict[str, Any]:
+    def _watch_once(self, topic_name: str) -> dict[str, Any]:
         return (
             self._service.users()
             .watch(
@@ -159,3 +159,15 @@ class GmailClient:
             )
             .execute()
         )
+
+    def stop_watch(self) -> None:
+        self._service.users().stop(userId="me").execute()
+
+    def watch(self, topic_name: str) -> dict[str, Any]:
+        try:
+            return self._watch_once(topic_name)
+        except Exception as error:
+            if "Only one user push notification client" not in str(error):
+                raise
+            self.stop_watch()
+            return self._watch_once(topic_name)

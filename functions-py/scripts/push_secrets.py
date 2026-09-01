@@ -7,13 +7,15 @@ import sys
 import tempfile
 from pathlib import Path
 
-ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
+ENV_PATH = Path(__file__).resolve().parent.parent / ".env.secrets"
 SECRET_KEYS = ("GEMINI_API_KEY",)
 
 
 def read_env(path: Path) -> dict[str, str]:
     if not path.exists():
-        raise SystemExit(f"No {path}. Copy .env.example to .env and fill it in.")
+        raise SystemExit(
+            f"No {path}. Copy .env.secrets.example to .env.secrets first."
+        )
     values: dict[str, str] = {}
     for raw_line in path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()

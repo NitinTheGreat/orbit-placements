@@ -68,8 +68,8 @@ def _gmail_for(student_id: str) -> GmailClient | None:
     return GmailClient(
         build_service(
             refresh_token,
-            GMAIL_OAUTH_CLIENT_ID.value(),
-            GMAIL_OAUTH_CLIENT_SECRET.value(),
+            GMAIL_OAUTH_CLIENT_ID.value,
+            GMAIL_OAUTH_CLIENT_SECRET.value,
         )
     )
 
@@ -224,7 +224,7 @@ def reconcileInboxes(event: scheduler_fn.ScheduledEvent) -> None:
 )
 def renewGmailWatches(event: scheduler_fn.ScheduledEvent) -> None:
     store = _store()
-    topic = GMAIL_PUBSUB_TOPIC.value()
+    topic = GMAIL_PUBSUB_TOPIC.value
     students = store.connected_students()
     logger.info("renewing watches for %d connected student(s)", len(students))
 
