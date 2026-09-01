@@ -181,7 +181,18 @@ The real screens construct Firebase services, so they cannot render before `flut
 flutter run --target=lib/preview/preview_app.dart
 ```
 
-It has a light/dark toggle in the header.
+It has a light/dark toggle in the header. Verified running on an Android 36 emulator.
+
+### Windows build notes
+
+This machine needed three things to build for Android, none of which are project changes:
+
+- `GRADLE_USER_HOME` is set to `F:\gradle-home`, because `C:` had under 3 GB free.
+- The NDK (`28.2.13676358`, released as r28c) lives at `F:ndroid-ndkndroid-ndk-r28c` and is exposed to the SDK through a directory junction at `%LOCALAPPDATA%\Android\sdk
+dk8.2.13676358`. AGP's own download failed for lack of space on `C:`.
+- `F:\gradle-home\gradle.properties` sets `kotlin.incremental=false`; incremental compilation could not close its caches on this filesystem and failed the build.
+
+The AVD also lives on `F:` via `ANDROID_AVD_HOME`.
 
 ## Implemented
 

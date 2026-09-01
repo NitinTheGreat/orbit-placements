@@ -68,3 +68,6 @@ scripts/serviceAccountKey*.json
 *.p12
 credentials*.json
 client_secret*.json
+
+# Local screenshots
+.screenshots/

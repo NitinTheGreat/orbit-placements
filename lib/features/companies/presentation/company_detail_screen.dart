@@ -115,10 +115,7 @@ class _DetailBody extends StatelessWidget {
           child: StatusChip(status: company.status),
         ),
         const SizedBox(height: OrbitSpacing.xl),
-        _DeadlineCard(
-          deadline: company.registrationDeadline,
-          urgency: urgency,
-        ),
+        _DeadlineCard(deadline: company.registrationDeadline, urgency: urgency),
         const SizedBox(height: OrbitSpacing.xl),
         _Section(
           title: 'The offer',
@@ -189,44 +186,48 @@ class _DeadlineCard extends StatelessWidget {
         color: pressing ? colors.urgentWash : colors.surfaceRaised,
         borderRadius: BorderRadius.circular(OrbitRadius.card),
         border: Border.all(
-          color: pressing ? colors.urgent.withValues(alpha: 0.4) : colors.border,
+          color: pressing
+              ? colors.urgent.withValues(alpha: 0.4)
+              : colors.border,
         ),
       ),
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            UrgencyRail(urgency: urgency),
-            const SizedBox(width: OrbitSpacing.lg),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Registration closes',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: pressing ? tint : colors.inkMuted,
-                    ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: OrbitRadius.rail,
+            height: 52,
+            child: UrgencyRail(urgency: urgency),
+          ),
+          const SizedBox(width: OrbitSpacing.lg),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Registration closes',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: pressing ? tint : colors.inkMuted,
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    CompanyFormat.deadlineLabel(deadline),
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: pressing ? tint : colors.ink,
-                    ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  CompanyFormat.deadlineLabel(deadline),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color: pressing ? tint : colors.ink,
                   ),
-                  if (deadline != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      CompanyFormat.dateTime(deadline),
-                      style: theme.textTheme.labelMedium,
-                    ),
-                  ],
+                ),
+                if (deadline != null) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    CompanyFormat.dateTime(deadline),
+                    style: theme.textTheme.labelMedium,
+                  ),
                 ],
-              ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

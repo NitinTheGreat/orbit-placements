@@ -26,87 +26,77 @@ class DriveCard extends StatelessWidget {
           color: colors.surfaceRaised,
           borderRadius: BorderRadius.circular(OrbitRadius.card),
           border: Border.all(
-            color: urgency.isPressing ? colors.urgent.withValues(alpha: 0.45) : colors.border,
+            color: urgency.isPressing
+                ? colors.urgent.withValues(alpha: 0.45)
+                : colors.border,
           ),
         ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: OrbitSpacing.md,
-                  horizontal: OrbitSpacing.md,
-                ),
-                child: UrgencyRail(urgency: urgency),
+        child: Stack(
+          children: [
+            Positioned(
+              left: OrbitSpacing.md,
+              top: OrbitSpacing.md,
+              bottom: OrbitSpacing.md,
+              child: UrgencyRail(urgency: urgency),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                OrbitSpacing.xl + OrbitSpacing.xs,
+                OrbitSpacing.lg,
+                OrbitSpacing.lg,
+                OrbitSpacing.lg,
               ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    0,
-                    OrbitSpacing.lg,
-                    OrbitSpacing.lg,
-                    OrbitSpacing.lg,
-                  ),
-                  child: Column(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Hero(
-                              tag: 'company-name-${company.id}',
-                              child: Material(
-                                type: MaterialType.transparency,
-                                child: Text(
-                                  company.name,
-                                  style: theme.textTheme.titleLarge,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
+                      Expanded(
+                        child: Hero(
+                          tag: 'company-name-${company.id}',
+                          child: Material(
+                            type: MaterialType.transparency,
+                            child: Text(
+                              company.name,
+                              style: theme.textTheme.titleLarge,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: OrbitSpacing.sm),
-                          StatusChip(status: company.status, dense: true),
-                        ],
-                      ),
-                      if (company.category.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          company.category,
-                          style: theme.textTheme.bodySmall,
                         ),
-                      ],
-                      const SizedBox(height: OrbitSpacing.md),
-                      _DeadlineLine(
-                        deadline: company.registrationDeadline,
-                        urgency: urgency,
                       ),
-                      if (company.ctc != null && company.ctc!.isNotEmpty) ...[
-                        const SizedBox(height: OrbitSpacing.sm),
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.payments_outlined,
-                              size: 15,
-                              color: colors.inkFaint,
-                            ),
-                            const SizedBox(width: OrbitSpacing.sm),
-                            Text(
-                              company.ctc!,
-                              style: theme.textTheme.labelMedium,
-                            ),
-                          ],
-                        ),
-                      ],
+                      const SizedBox(width: OrbitSpacing.sm),
+                      StatusChip(status: company.status, dense: true),
                     ],
                   ),
-                ),
+                  if (company.category.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(company.category, style: theme.textTheme.bodySmall),
+                  ],
+                  const SizedBox(height: OrbitSpacing.md),
+                  _DeadlineLine(
+                    deadline: company.registrationDeadline,
+                    urgency: urgency,
+                  ),
+                  if (company.ctc != null && company.ctc!.isNotEmpty) ...[
+                    const SizedBox(height: OrbitSpacing.sm),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.payments_outlined,
+                          size: 15,
+                          color: colors.inkFaint,
+                        ),
+                        const SizedBox(width: OrbitSpacing.sm),
+                        Text(company.ctc!, style: theme.textTheme.labelMedium),
+                      ],
+                    ),
+                  ],
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
