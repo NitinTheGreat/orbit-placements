@@ -71,3 +71,7 @@ client_secret*.json
 
 # Local screenshots
 .screenshots/
+
+# Local dev config (contains project-specific ids)
+dart_define.json
+dart_define.*.json

@@ -92,10 +92,14 @@ The refresh token is written to `gmailTokens/{uid}`, which is `allow read, write
 
 ### Configuration
 
-The app needs the web client ID at build time:
+The app needs the web client ID at build time. Keep it in `dart_define.json` at the project root (gitignored, since it is project-specific):
+
+```json
+{ "GOOGLE_SERVER_CLIENT_ID": "<web-client-id>.apps.googleusercontent.com" }
+```
 
 ```bash
-flutter run --dart-define=GOOGLE_SERVER_CLIENT_ID=<web-client-id>.apps.googleusercontent.com
+flutter run --dart-define-from-file=dart_define.json
 ```
 
 The function needs two parameters and one secret:
@@ -105,7 +109,25 @@ cd functions && npm install
 firebase functions:secrets:set GMAIL_OAUTH_CLIENT_SECRET
 ```
 
-Copy `functions/.env.example` to `functions/.env` and fill in `GMAIL_OAUTH_CLIENT_ID` and `GMAIL_PUBSUB_TOPIC` (`projects/<project-id>/topics/gmail-notifications`). Deploy with `firebase deploy --only functions`.
+Copy `functions/.env.example` to `functions/.env` and fill in `GMAIL_OAUTH_CLIENT_ID` and `GMAIL_PUBSUB_TOPIC`. For this project those are the web client ID and `projects/orbit-507316/topics/gmail-notifications`. Deploy with `firebase deploy --only functions`.
+
+The secret is set from a file rather than typed, so it never reaches a shell history:
+
+```bash
+firebase functions:secrets:set GMAIL_OAUTH_CLIENT_SECRET --data-file path/to/secret.txt
+```
+
+The file must contain the secret with no trailing newline; Secret Manager stores the bytes verbatim.
+
+### This project's identifiers
+
+| Thing | Value |
+| --- | --- |
+| GCP / Firebase project | `orbit-507316` (display name `orbit-placements`) |
+| Firestore location | `asia-south1` (permanent) |
+| Pub/Sub topic | `projects/orbit-507316/topics/gmail-notifications` |
+| Dead-letter topic | `projects/orbit-507316/topics/gmail-notifications-dlq` |
+| Android package / iOS bundle | `com.nitin.orbit` |
 
 ### Google Cloud setup
 
