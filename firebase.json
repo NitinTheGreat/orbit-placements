@@ -8,5 +8,33 @@
       "source": "functions",
       "codebase": "default"
     }
-  ]
+  ],
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "orbit-507316",
+          "appId": "1:206075195473:android:51de3540879080a7908870",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "orbit-507316",
+          "configurations": {
+            "android": "1:206075195473:android:51de3540879080a7908870",
+            "ios": "1:206075195473:ios:69bdfb6e595867f1908870"
+          }
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "orbit-507316",
+          "appId": "1:206075195473:ios:69bdfb6e595867f1908870",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      }
+    }
+  }
 }
