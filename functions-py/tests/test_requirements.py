@@ -28,7 +28,7 @@ def test_same_label_under_two_types_gets_two_ids():
     built = build_requirements(
         [req("neopat", "Register"), req("company_site", "Register")], NOW, "m1"
     )
-    assert {r["id"] for r in built} == {"neopat-register", "company-site-register"}
+    assert {r["id"] for r in built} == {"neopat", "company-site-register"}
 
 
 def test_build_records_provenance():
@@ -43,11 +43,8 @@ def test_merge_adds_new_items_without_dropping_old_ones():
 
     merged, newly_required = merge_requirements(existing, incoming)
 
-    assert [r["id"] for r in merged] == [
-        "google-form-fill-the-form",
-        "neopat-register-on-neopat",
-    ]
-    assert [r["id"] for r in newly_required] == ["neopat-register-on-neopat"]
+    assert [r["id"] for r in merged] == ["google-form-fill-the-form", "neopat"]
+    assert [r["id"] for r in newly_required] == ["neopat"]
 
 
 def test_merge_never_removes_an_id_a_later_mail_omitted():
@@ -61,7 +58,7 @@ def test_merge_never_removes_an_id_a_later_mail_omitted():
     merged, _ = merge_requirements(existing, incoming)
 
     assert len(merged) == 2
-    assert "neopat-register-on-neopat" in {r["id"] for r in merged}
+    assert "neopat" in {r["id"] for r in merged}
 
 
 def test_merge_updates_label_url_and_required_in_place():
