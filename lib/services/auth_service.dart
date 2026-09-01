@@ -1,0 +1,108 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+import '../core/constants/app_constants.dart';
+
+class AuthException implements Exception {
+  const AuthException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+class SignInCancelled implements Exception {
+  const SignInCancelled();
+}
+
+class AuthService {
+  AuthService({FirebaseAuth? auth, GoogleSignIn? googleSignIn})
+    : _auth = auth ?? FirebaseAuth.instance,
+      _googleSignIn = googleSignIn ?? GoogleSignIn.instance;
+
+  final FirebaseAuth _auth;
+  final GoogleSignIn _googleSignIn;
+
+  bool _initialized = false;
+
+  User? get currentUser => _auth.currentUser;
+
+  Stream<User?> idTokenChanges() => _auth.idTokenChanges();
+
+  Future<void> ensureInitialized({String? serverClientId}) async {
+    if (_initialized) {
+      return;
+    }
+    await _googleSignIn.initialize(
+      serverClientId: serverClientId,
+      hostedDomain: AppConstants.allowedEmailDomain,
+    );
+    _initialized = true;
+  }
+
+  Future<User> signInWithGoogle() async {
+    await ensureInitialized();
+
+    if (!_googleSignIn.supportsAuthenticate()) {
+      throw const AuthException(
+        'Google sign-in is not supported on this platform.',
+      );
+    }
+
+    final GoogleSignInAccount account;
+    try {
+      account = await _googleSignIn.authenticate();
+    } on GoogleSignInException catch (error) {
+      if (error.code == GoogleSignInExceptionCode.canceled) {
+        throw const SignInCancelled();
+      }
+      throw AuthException(
+        error.description ?? 'Google sign-in failed. Please try again.',
+      );
+    }
+
+    if (!AppConstants.isAllowedEmail(account.email)) {
+      await _googleSignIn.signOut();
+      throw AuthException(
+        'Please use your VIT email (@${AppConstants.allowedEmailDomain}). '
+        '${account.email} is not a VIT student account.',
+      );
+    }
+
+    final idToken = account.authentication.idToken;
+    if (idToken == null) {
+      await _googleSignIn.signOut();
+      throw const AuthException(
+        'Google did not return an identity token. Please try again.',
+      );
+    }
+
+    final credential = GoogleAuthProvider.credential(idToken: idToken);
+    final userCredential = await _auth.signInWithCredential(credential);
+    final user = userCredential.user;
+
+    if (user == null || !AppConstants.isAllowedEmail(user.email)) {
+      await signOut();
+      throw AuthException(
+        'Please use your VIT email (@${AppConstants.allowedEmailDomain}).',
+      );
+    }
+
+    return user;
+  }
+
+  Future<bool> hasAdminClaim({bool forceRefresh = false}) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      return false;
+    }
+    final token = await user.getIdTokenResult(forceRefresh);
+    return token.claims?['admin'] == true;
+  }
+
+  Future<void> signOut() async {
+    await _googleSignIn.signOut();
+    await _auth.signOut();
+  }
+}

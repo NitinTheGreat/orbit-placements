@@ -1,0 +1,51 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isVitStudent() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email.lower().matches('.*@vitstudent[.]ac[.]in');
+    }
+
+    function isAdmin() {
+      return isVitStudent() && request.auth.token.admin == true;
+    }
+
+    function isOwner(uid) {
+      return isVitStudent() && request.auth.uid == uid;
+    }
+
+    match /students/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid)
+        && request.resource.data.vitEmail.lower() == request.auth.token.email.lower();
+      allow update: if isOwner(uid)
+        && request.resource.data.vitEmail == resource.data.vitEmail;
+      allow delete: if false;
+    }
+
+    match /companies/{companyId} {
+      allow read: if isVitStudent();
+      allow write: if isAdmin();
+    }
+
+    match /studentCompanyStatus/{statusId} {
+      allow read: if isVitStudent()
+        && (resource.data.studentId == request.auth.uid || isAdmin());
+      allow create: if isVitStudent()
+        && request.resource.data.studentId == request.auth.uid
+        && statusId == request.auth.uid + '_' + request.resource.data.companyId;
+      allow update: if isVitStudent()
+        && resource.data.studentId == request.auth.uid
+        && request.resource.data.studentId == request.auth.uid;
+      allow delete: if isAdmin();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
