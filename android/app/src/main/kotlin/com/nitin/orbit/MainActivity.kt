@@ -1,4 +1,4 @@
-package com.orbit.orbit
+package com.nitin.orbit
 
 import io.flutter.embedding.android.FlutterActivity
 
