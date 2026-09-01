@@ -11,6 +11,7 @@ import '../../../models/gmail_sync.dart';
 import '../../../models/student_company_status.dart';
 import '../../../services/firestore_service.dart';
 import '../../../services/sync_service.dart';
+import 'company_format.dart';
 import 'company_page_controller.dart';
 import 'drive_list_empty_state.dart';
 import 'widgets/drive_card.dart';
@@ -118,10 +119,7 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
                           style: theme.textTheme.headlineMedium,
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          'Every drive you need to act on',
-                          style: theme.textTheme.bodySmall,
-                        ),
+                        _LastCheckedLine(sync: session.gmailSync),
                       ],
                     ),
                   ),
@@ -336,6 +334,34 @@ class _EmptyStateView extends StatelessWidget {
   }
 }
 
+class _LastCheckedLine extends StatelessWidget {
+  const _LastCheckedLine({required this.sync});
+
+  final GmailSync sync;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = OrbitTheme.of(context);
+
+    if (!sync.isConnected) {
+      return Text(
+        'Every drive you need to act on',
+        style: theme.textTheme.bodySmall,
+      );
+    }
+
+    final stale = sync.isStale(DateTime.now());
+    return Text(
+      'Last checked ${relativeSince(sync.lastSyncedAt)}',
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: stale ? colors.urgentInk : null,
+        fontWeight: stale ? FontWeight.w600 : null,
+      ),
+    );
+  }
+}
+
 class _GmailBanner extends StatelessWidget {
   const _GmailBanner({required this.status});
 
@@ -345,6 +371,12 @@ class _GmailBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = OrbitTheme.of(context);
+
+    final headline = switch (status) {
+      GmailConnectionStatus.needsReconnect ||
+      GmailConnectionStatus.expired => 'Gmail disconnected',
+      _ => 'Gmail is not connected',
+    };
 
     return Pressable(
       onTap: () => context.goNamed(AppRoutes.gmailConnect),
@@ -364,16 +396,14 @@ class _GmailBanner extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    status == GmailConnectionStatus.expired
-                        ? 'Gmail access expired'
-                        : 'Gmail is not connected',
+                    headline,
                     style: theme.textTheme.labelLarge?.copyWith(
                       color: colors.urgentInk,
                     ),
                   ),
                   const SizedBox(height: 1),
                   Text(
-                    'Orbit has stopped tracking your mail. Tap to reconnect.',
+                    'Reconnect to keep tracking. Tap to fix.',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: colors.urgentInk,
                     ),

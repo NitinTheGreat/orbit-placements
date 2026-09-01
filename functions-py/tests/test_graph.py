@@ -117,10 +117,11 @@ def base_state(**overrides) -> IngestionState:
         "student_id": "student-1",
         "student_identifiers": ["L5P2U7S5", "23BCT0098"],
         "message_id": "msg-1",
-        "sender": "placements@vit.ac.in",
+        "sender": "VITians CDC 2027 <vitianscdc2027@vitstudent.ac.in>",
         "subject": "Rubrik shortlist for Technical Round 1",
         "internal_date_ms": AFTER_CUTOFF_MS,
         "cutoff_ms": CUTOFF_MS,
+        "allowed_sender_patterns": [r"vitianscdc\d{4}@vitstudent\.ac\.in"],
     }
     state.update(overrides)
     return state
@@ -139,7 +140,7 @@ def test_cutoff_rejects_old_mail_before_any_fetch():
     assert extractor.calls == 0
 
 
-def test_unrelated_sender_and_subject_rejected():
+def test_unrelated_sender_rejected():
     gmail = FakeGmail()
     graph = build_graph(make_deps(gmail=gmail))
 
@@ -147,7 +148,7 @@ def test_unrelated_sender_and_subject_rejected():
         base_state(sender="newsletter@shopping.com", subject="Your order shipped")
     )
 
-    assert result["halt_reason"] == "sender_subject_mismatch"
+    assert result["halt_reason"] == "sender_not_allowed"
     assert gmail.full_calls == 0
 
 

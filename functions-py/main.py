@@ -2,20 +2,30 @@ from __future__ import annotations
 
 import base64
 import json
-import os
-from datetime import datetime, timedelta, timezone
+import logging
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import firebase_admin
 from firebase_admin import firestore as admin_firestore
-from firebase_functions import https_fn, options, pubsub_fn
+from firebase_functions import https_fn, options, pubsub_fn, scheduler_fn
 from firebase_functions.params import SecretParam, StringParam
 
+from orbit.config import IngestionConfig, load_config
 from orbit.extraction import GeminiExtractor
 from orbit.firestore_store import FirestoreStore
 from orbit.gmail_client import GmailClient, build_service
-from orbit.graph import build_graph
-from orbit.state import IngestionState
+from orbit.runner import (
+    TokenRevoked,
+    collect_message_ids,
+    dry_run,
+    is_revoked_error,
+    run_messages,
+)
 from orbit.store import Deps, utc_now
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("orbit")
 
 GMAIL_OAUTH_CLIENT_ID = StringParam("GMAIL_OAUTH_CLIENT_ID")
 GMAIL_PUBSUB_TOPIC = StringParam("GMAIL_PUBSUB_TOPIC")
@@ -24,116 +34,98 @@ GEMINI_API_KEY = SecretParam("GEMINI_API_KEY")
 
 ALLOWED_EMAIL_DOMAIN = "@vitstudent.ac.in"
 SYNC_COOLDOWN_SECONDS = 30
-DEFAULT_CUTOFF_ISO = "2026-01-01T00:00:00+00:00"
+REGION = "us-central1"
 
 firebase_admin.initialize_app()
 
-_cutoff_ms: int | None = None
+_config: IngestionConfig | None = None
 
 
 def _store() -> FirestoreStore:
     return FirestoreStore(admin_firestore.client())
 
 
-def _cutoff(store: FirestoreStore) -> int:
-    global _cutoff_ms
-    if _cutoff_ms is None:
-        raw = (store.get_config() or {}).get("cutoffDate")
-        if isinstance(raw, datetime):
-            parsed = raw
-        else:
-            parsed = datetime.fromisoformat(str(raw or DEFAULT_CUTOFF_ISO))
-        if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=timezone.utc)
-        _cutoff_ms = int(parsed.timestamp() * 1000)
-    return _cutoff_ms
+def _ingestion_config(store: FirestoreStore) -> IngestionConfig:
+    global _config
+    if _config is None:
+        _config = load_config(store.get_config())
+    return _config
 
 
 def _identifiers(student: dict) -> list[str]:
-    values = [student.get("neoId"), student.get("regNo")]
-    return [v for v in values if v]
+    return [v for v in (student.get("neoId"), student.get("regNo")) if v]
 
 
-def _run_for_messages(
-    store: FirestoreStore,
-    gmail: GmailClient,
-    student_id: str,
-    student: dict,
-    message_ids: list[str],
-) -> dict[str, int]:
-    deps = Deps(
-        store=store,
-        gmail=gmail,
-        extractor=GeminiExtractor(),
-        now=utc_now,
-    )
-    graph = build_graph(deps)
-    cutoff = _cutoff(store)
-    identifiers = _identifiers(student)
-    counts = {"processed": 0, "skipped": 0, "written": 0}
-
-    for message_id in message_ids:
-        if store.is_processed(message_id):
-            counts["skipped"] += 1
-            continue
-
-        metadata = gmail.get_metadata(message_id)
-        state: IngestionState = {
-            "student_id": student_id,
-            "student_identifiers": identifiers,
-            "message_id": message_id,
-            "sender": metadata["sender"],
-            "subject": metadata["subject"],
-            "internal_date_ms": metadata["internal_date_ms"],
-            "cutoff_ms": cutoff,
-        }
-        result = graph.invoke(state)
-        outcome = result.get("halt_reason") or "written"
-        if outcome == "written":
-            counts["written"] += 1
-        store.mark_processed(message_id, student_id, outcome)
-        counts["processed"] += 1
-
-    return counts
-
-
-def _gmail_for(store: FirestoreStore, student_id: str) -> GmailClient | None:
+def _gmail_for(student_id: str) -> GmailClient | None:
     token_doc = (
-        admin_firestore.client()
-        .collection("gmailTokens")
-        .document(student_id)
-        .get()
+        admin_firestore.client().collection("gmailTokens").document(student_id).get()
     )
     if not token_doc.exists:
         return None
     refresh_token = (token_doc.to_dict() or {}).get("refreshToken")
     if not refresh_token:
         return None
-    service = build_service(
-        refresh_token,
-        GMAIL_OAUTH_CLIENT_ID.value(),
-        GMAIL_OAUTH_CLIENT_SECRET.value(),
+    return GmailClient(
+        build_service(
+            refresh_token,
+            GMAIL_OAUTH_CLIENT_ID.value(),
+            GMAIL_OAUTH_CLIENT_SECRET.value(),
+        )
     )
-    return GmailClient(service)
 
 
-def _collect_message_ids(
-    gmail: GmailClient, store: FirestoreStore, student_id: str, student: dict
-) -> tuple[list[str], str | None]:
+def _deps(store: FirestoreStore, gmail: GmailClient) -> Deps:
+    return Deps(
+        store=store, gmail=gmail, extractor=GeminiExtractor(), now=utc_now
+    )
+
+
+def _needs_reconnect(store: FirestoreStore, student_id: str, reason: str) -> None:
+    logger.error(
+        "gmail_needs_reconnect student=%s reason=%s", student_id, reason[:200]
+    )
+    store.mark_needs_reconnect(student_id, reason)
+
+
+def _sync_student(
+    store: FirestoreStore, student_id: str, student: dict
+) -> dict[str, int]:
+    gmail = _gmail_for(student_id)
+    if gmail is None:
+        _needs_reconnect(store, student_id, "no refresh token stored")
+        return {"processed": 0, "skipped": 0, "written": 0}
+
+    config = _ingestion_config(store)
     history_id = (student.get("gmailSync") or {}).get("historyId")
-    if history_id:
-        try:
-            return gmail.list_new_message_ids(str(history_id))
-        except Exception:
-            pass
-    after = int((utc_now() - timedelta(days=7)).timestamp())
-    return gmail.scan_recent_message_ids(after)
+
+    try:
+        message_ids, latest_history_id, _ = collect_message_ids(
+            gmail, config, history_id
+        )
+        counts = run_messages(
+            _deps(store, gmail),
+            config,
+            student_id,
+            _identifiers(student),
+            message_ids,
+        )
+    except TokenRevoked as error:
+        _needs_reconnect(store, student_id, str(error))
+        return {"processed": 0, "skipped": 0, "written": 0}
+    except Exception as error:
+        if is_revoked_error(error):
+            _needs_reconnect(store, student_id, str(error))
+            return {"processed": 0, "skipped": 0, "written": 0}
+        raise
+
+    store.mark_synced(student_id, latest_history_id)
+    return counts
 
 
 @pubsub_fn.on_message_published(
     topic="gmail-notifications",
     secrets=[GMAIL_OAUTH_CLIENT_SECRET, GEMINI_API_KEY],
-    region="us-central1",
+    region=REGION,
     memory=options.MemoryOption.MB_512,
     timeout_sec=540,
 )
@@ -147,28 +139,120 @@ def ingestGmailNotification(event: pubsub_fn.CloudEvent) -> None:
     store = _store()
     found = store.find_student_by_email(email)
     if not found:
+        logger.warning("push for unknown mailbox %s", email)
         return
+
     student_id, student = found
-
-    gmail = _gmail_for(store, student_id)
-    if gmail is None:
-        return
-
-    message_ids, latest_history_id = _collect_message_ids(
-        gmail, store, student_id, student
-    )
-    _run_for_messages(store, gmail, student_id, student, message_ids)
-    if latest_history_id:
-        store.set_gmail_history_id(student_id, str(latest_history_id))
+    counts = _sync_student(store, student_id, student)
+    logger.info("push sync student=%s counts=%s", student_id, counts)
 
 
 @https_fn.on_call(
     secrets=[GMAIL_OAUTH_CLIENT_SECRET, GEMINI_API_KEY],
-    region="us-central1",
+    region=REGION,
     memory=options.MemoryOption.MB_512,
     timeout_sec=300,
 )
 def syncNow(req: https_fn.CallableRequest) -> dict:
+    student_id, student, store = _require_student(req)
+
+    now = utc_now()
+    last_sync = (student.get("gmailSync") or {}).get("lastSyncedAt")
+    if isinstance(last_sync, datetime):
+        elapsed = (now - last_sync).total_seconds()
+        if elapsed < SYNC_COOLDOWN_SECONDS:
+            raise https_fn.HttpsError(
+                https_fn.FunctionsErrorCode.RESOURCE_EXHAUSTED,
+                f"Just checked. Try again in {int(SYNC_COOLDOWN_SECONDS - elapsed)}s.",
+            )
+
+    counts = _sync_student(store, student_id, student)
+    return counts
+
+
+@https_fn.on_call(
+    secrets=[GMAIL_OAUTH_CLIENT_SECRET],
+    region=REGION,
+    memory=options.MemoryOption.MB_512,
+    timeout_sec=300,
+)
+def dryRunFilter(req: https_fn.CallableRequest) -> dict:
+    student_id, student, store = _require_student(req)
+
+    gmail = _gmail_for(student_id)
+    if gmail is None:
+        raise https_fn.HttpsError(
+            https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
+            "Connect Gmail before running a dry run.",
+        )
+
+    config = _ingestion_config(store)
+    history_id = (student.get("gmailSync") or {}).get("historyId")
+    if req.data and req.data.get("fullScan"):
+        history_id = None
+
+    return dry_run(gmail, store, config, history_id)
+
+
+@scheduler_fn.on_schedule(
+    schedule="every 2 hours",
+    secrets=[GMAIL_OAUTH_CLIENT_SECRET, GEMINI_API_KEY],
+    region=REGION,
+    memory=options.MemoryOption.MB_512,
+    timeout_sec=540,
+)
+def reconcileInboxes(event: scheduler_fn.ScheduledEvent) -> None:
+    store = _store()
+    students = store.connected_students()
+    logger.info("reconciliation sweep over %d connected student(s)", len(students))
+
+    for student_id, student in students:
+        try:
+            counts = _sync_student(store, student_id, student)
+            logger.info("sweep student=%s counts=%s", student_id, counts)
+        except Exception as error:
+            logger.exception("sweep failed for student=%s: %s", student_id, error)
+
+
+@scheduler_fn.on_schedule(
+    schedule="every day 03:00",
+    timezone=ZoneInfo("Asia/Kolkata"),
+    secrets=[GMAIL_OAUTH_CLIENT_SECRET],
+    region=REGION,
+    memory=options.MemoryOption.MB_256,
+    timeout_sec=540,
+)
+def renewGmailWatches(event: scheduler_fn.ScheduledEvent) -> None:
+    store = _store()
+    topic = GMAIL_PUBSUB_TOPIC.value()
+    students = store.connected_students()
+    logger.info("renewing watches for %d connected student(s)", len(students))
+
+    for student_id, _ in students:
+        gmail = _gmail_for(student_id)
+        if gmail is None:
+            _needs_reconnect(store, student_id, "no refresh token stored")
+            continue
+        try:
+            result = gmail.watch(topic)
+        except Exception as error:
+            if is_revoked_error(error):
+                _needs_reconnect(store, student_id, str(error))
+                continue
+            logger.exception("watch renewal failed student=%s", student_id)
+            continue
+
+        expiration = result.get("expiration")
+        if expiration:
+            store.set_watch_expiration(student_id, int(expiration))
+        logger.info(
+            "watch renewed student=%s expiration=%s", student_id, expiration
+        )
+
+
+def _require_student(
+    req: https_fn.CallableRequest,
+) -> tuple[str, dict, FirestoreStore]:
     auth = req.auth
     if auth is None:
         raise https_fn.HttpsError(
@@ -178,44 +262,14 @@ def syncNow(req: https_fn.CallableRequest) -> dict:
     if not email.lower().endswith(ALLOWED_EMAIL_DOMAIN):
         raise https_fn.HttpsError(
             https_fn.FunctionsErrorCode.PERMISSION_DENIED,
-            f"Only {ALLOWED_EMAIL_DOMAIN} accounts can sync.",
+            f"Only {ALLOWED_EMAIL_DOMAIN} accounts can do this.",
         )
 
-    student_id = auth.uid
     store = _store()
-    student = store.get_student(student_id)
+    student = store.get_student(auth.uid)
     if not student:
         raise https_fn.HttpsError(
             https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
-            "Finish onboarding before syncing.",
+            "Finish onboarding first.",
         )
-
-    now = utc_now()
-    last_sync = (student.get("gmailSync") or {}).get("lastSyncAt")
-    if isinstance(last_sync, datetime):
-        elapsed = (now - last_sync).total_seconds()
-        if elapsed < SYNC_COOLDOWN_SECONDS:
-            raise https_fn.HttpsError(
-                https_fn.FunctionsErrorCode.RESOURCE_EXHAUSTED,
-                f"Just synced. Try again in {int(SYNC_COOLDOWN_SECONDS - elapsed)}s.",
-            )
-
-    admin_firestore.client().collection("students").document(student_id).set(
-        {"gmailSync": {"lastSyncAt": now}}, merge=True
-    )
-
-    gmail = _gmail_for(store, student_id)
-    if gmail is None:
-        raise https_fn.HttpsError(
-            https_fn.FunctionsErrorCode.FAILED_PRECONDITION,
-            "Connect Gmail before syncing.",
-        )
-
-    message_ids, latest_history_id = _collect_message_ids(
-        gmail, store, student_id, student
-    )
-    counts = _run_for_messages(store, gmail, student_id, student, message_ids)
-    if latest_history_id:
-        store.set_gmail_history_id(student_id, str(latest_history_id))
-
-    return {"scanned": len(message_ids), **counts}
+    return auth.uid, student, store

@@ -264,6 +264,38 @@ the first time a student is genuinely named in a drive's mail, an explicit
 
 This was a model change against an empty database, not a migration.
 
+### Reliability
+
+`config/ingestion` holds the runtime filter, so tightening the sender list
+never needs a deploy:
+
+```
+cutoffDate            2026-09-01T00:00:00+05:30
+allowedSenderPatterns ["vitianscdc2027@vitstudent\.ac\.in",
+                       "vitianscdc\d{4}@vitstudent\.ac\.in"]
+```
+
+Patterns match against the addresses parsed out of the `From` header, not the
+display name, because CDC mail arrives in a "via group" form. If the document
+is missing the code falls back to the same built-in patterns and logs a
+WARNING, so a misconfiguration is visible rather than silent.
+
+Four entry points share one graph and one `processedMessages` guard:
+`ingestGmailNotification` (Pub/Sub push), `syncNow` (pull to refresh),
+`reconcileInboxes` (every two hours), and `renewGmailWatches` (daily). The
+sweep reads `history.list` from the stored `historyId`; on a 404 it falls back
+to a bounded `messages.list` restricted to the allowed senders and resyncs the
+history id from `getProfile`. On `invalid_grant` or 401 it sets
+`gmailSync.status = 'needs_reconnect'`, logs at ERROR, and moves on rather
+than retrying a dead token.
+
+Watch renewal deliberately leaves `historyId` alone and updates only
+`watchExpiration`; rewriting it would skip every message that arrived between
+the old id and the renewal.
+
+`dryRunFilter` runs the same collection and filter for one student and returns
+counts plus the first ten rejected `From`/subject pairs. It writes nothing.
+
 ### Extraction model
 
 `llm_extract` calls Gemini through the `google-genai` SDK with API-key auth,

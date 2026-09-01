@@ -11,6 +11,7 @@ class IngestionState(TypedDict, total=False):
     subject: str
     internal_date_ms: int
     cutoff_ms: int
+    allowed_sender_patterns: list[str]
     body_text: str
     hash_text: str
     body_hash: str

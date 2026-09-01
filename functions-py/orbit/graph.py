@@ -6,7 +6,7 @@ from langgraph.graph import END, START, StateGraph
 
 from .attachments import extract_text, is_supported
 from .cleaning import clean_body, content_hash
-from .matching import find_identifier, looks_like_placement_mail
+from .matching import find_identifier, sender_allowed
 from .state import IngestionState, halt
 from .store import (
     Deps,
@@ -32,10 +32,10 @@ def make_cheap_filter(deps: Deps):
         cutoff = state.get("cutoff_ms", 0)
         if internal_date < cutoff:
             return halt(state, CHEAP_FILTER, "before_cutoff")
-        if not looks_like_placement_mail(
-            state.get("sender", ""), state.get("subject", "")
+        if not sender_allowed(
+            state.get("sender", ""), state.get("allowed_sender_patterns", [])
         ):
-            return halt(state, CHEAP_FILTER, "sender_subject_mismatch")
+            return halt(state, CHEAP_FILTER, "sender_not_allowed")
         return state
 
     return cheap_filter

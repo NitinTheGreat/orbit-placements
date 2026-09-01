@@ -87,6 +87,48 @@ class FirestoreStore:
             {"gmailSync": {"historyId": history_id}}, merge=True
         )
 
+    def mark_synced(self, student_id: str, history_id: str | None = None) -> None:
+        payload: dict[str, Any] = {
+            "lastSyncedAt": datetime.now(timezone.utc),
+            "status": "connected",
+            "lastError": None,
+        }
+        if history_id:
+            payload["historyId"] = str(history_id)
+        self._db.collection("students").document(student_id).set(
+            {"gmailSync": payload}, merge=True
+        )
+
+    def mark_needs_reconnect(self, student_id: str, reason: str) -> None:
+        self._db.collection("students").document(student_id).set(
+            {
+                "gmailSync": {
+                    "status": "needs_reconnect",
+                    "lastError": reason[:400],
+                    "lastSyncedAt": datetime.now(timezone.utc),
+                }
+            },
+            merge=True,
+        )
+
+    def set_watch_expiration(self, student_id: str, expiration_ms: int) -> None:
+        self._db.collection("students").document(student_id).set(
+            {
+                "gmailSync": {
+                    "watchExpiration": datetime.fromtimestamp(
+                        expiration_ms / 1000, tz=timezone.utc
+                    )
+                }
+            },
+            merge=True,
+        )
+
+    def connected_students(self) -> list[tuple[str, dict[str, Any]]]:
+        query = self._db.collection("students").where(
+            filter=firestore.FieldFilter("gmailSync.status", "==", "connected")
+        )
+        return [(doc.id, doc.to_dict() or {}) for doc in query.stream()]
+
     def find_student_by_email(self, email: str) -> tuple[str, dict[str, Any]] | None:
         query = (
             self._db.collection("students")

@@ -126,17 +126,36 @@ class GmailClient:
                 break
         return message_ids, latest_history_id
 
-    def scan_recent_message_ids(self, after_epoch_seconds: int) -> tuple[list[str], str | None]:
+    def scan_recent_message_ids(
+        self, after_epoch_seconds: int, senders: list[str] | None = None
+    ) -> tuple[list[str], str | None]:
+        query = f"after:{after_epoch_seconds}"
+        if senders:
+            joined = " OR ".join(f"from:{sender}" for sender in senders)
+            query = f"{query} ({joined})"
         response = (
             self._service.users()
             .messages()
-            .list(
-                userId="me",
-                q=f"after:{after_epoch_seconds}",
-                maxResults=MAX_SCAN_MESSAGES,
-            )
+            .list(userId="me", q=query, maxResults=MAX_SCAN_MESSAGES)
             .execute()
         )
         ids = [m["id"] for m in response.get("messages", []) if m.get("id")]
+        return ids, self.current_history_id()
+
+    def current_history_id(self) -> str | None:
         profile = self._service.users().getProfile(userId="me").execute()
-        return ids, profile.get("historyId")
+        return profile.get("historyId")
+
+    def watch(self, topic_name: str) -> dict[str, Any]:
+        return (
+            self._service.users()
+            .watch(
+                userId="me",
+                body={
+                    "topicName": topic_name,
+                    "labelIds": ["INBOX"],
+                    "labelFilterBehavior": "INCLUDE",
+                },
+            )
+            .execute()
+        )

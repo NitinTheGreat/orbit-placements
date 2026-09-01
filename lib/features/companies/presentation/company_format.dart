@@ -95,3 +95,25 @@ DeadlineUrgency deadlineUrgency(DateTime? deadline, {DateTime? now}) {
   }
   return DeadlineUrgency.distant;
 }
+
+String relativeSince(DateTime? moment, {DateTime? now}) {
+  if (moment == null) {
+    return 'never';
+  }
+  final reference = now ?? DateTime.now();
+  final elapsed = reference.difference(moment.toLocal());
+
+  if (elapsed.isNegative || elapsed.inSeconds < 60) {
+    return 'just now';
+  }
+  if (elapsed.inMinutes < 60) {
+    final minutes = elapsed.inMinutes;
+    return '$minutes ${minutes == 1 ? 'minute' : 'minutes'} ago';
+  }
+  if (elapsed.inHours < 24) {
+    final hours = elapsed.inHours;
+    return '$hours ${hours == 1 ? 'hour' : 'hours'} ago';
+  }
+  final days = elapsed.inDays;
+  return '$days ${days == 1 ? 'day' : 'days'} ago';
+}

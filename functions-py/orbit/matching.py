@@ -3,32 +3,11 @@ from __future__ import annotations
 import re
 
 _NORMALISE = re.compile(r"[^a-z0-9]+")
+_EMAIL_IN_HEADER = re.compile(r"[\w.+-]+@[\w.-]+\.\w+")
 
-PLACEMENT_SENDER_HINTS = (
-    "placement",
-    "tpo",
-    "career",
-    "cdc",
-    "vit.ac.in",
-    "vitstudent.ac.in",
-)
-
-PLACEMENT_SUBJECT_HINTS = (
-    "placement",
-    "drive",
-    "shortlist",
-    "shortlisted",
-    "interview",
-    "online assessment",
-    "oa ",
-    "ppt",
-    "pre-placement",
-    "recruitment",
-    "hiring",
-    "internship",
-    "offer",
-    "selected",
-    "registration",
+DEFAULT_SENDER_PATTERNS = (
+    r"vitianscdc\d{4}@vitstudent\.ac\.in",
+    r"vitianscdc2027@vitstudent\.ac\.in",
 )
 
 
@@ -36,12 +15,23 @@ def normalise_identifier(value: str) -> str:
     return _NORMALISE.sub("", (value or "").lower())
 
 
-def looks_like_placement_mail(sender: str, subject: str) -> bool:
-    lowered_sender = (sender or "").lower()
-    lowered_subject = (subject or "").lower()
-    if any(hint in lowered_sender for hint in PLACEMENT_SENDER_HINTS):
-        return True
-    return any(hint in lowered_subject for hint in PLACEMENT_SUBJECT_HINTS)
+def extract_addresses(from_header: str) -> list[str]:
+    return [match.lower() for match in _EMAIL_IN_HEADER.findall(from_header or "")]
+
+
+def sender_allowed(from_header: str, patterns: list[str]) -> bool:
+    addresses = extract_addresses(from_header)
+    if not addresses:
+        return False
+    for raw in patterns:
+        try:
+            expression = re.compile(raw, re.IGNORECASE)
+        except re.error:
+            continue
+        for address in addresses:
+            if expression.fullmatch(address) or expression.search(address):
+                return True
+    return False
 
 
 def find_identifier(haystack: str, identifiers: list[str]) -> str | None:
