@@ -296,6 +296,32 @@ the old id and the renewal.
 `dryRunFilter` runs the same collection and filter for one student and returns
 counts plus the first ten rejected `From`/subject pairs. It writes nothing.
 
+### Requirements and application status
+
+`companies.requirements` entries carry `{ id, type, label, url, required,
+addedAt, sourceMessageId }`, where `type` is one of `neopat`, `google_form`,
+`company_site`, `other` and `id` is a slug of type plus label. The extraction
+prompt emits a `neopat` item only when the mail actually says NeoPAT, so a
+drive that never mentions it has no NeoPAT step.
+
+`company_write` merges requirements **by id**: new ids are appended, existing
+ones have their label, url and required flag refreshed, and an id is never
+dropped because a later mail did not repeat it. Promoting an item to required
+logs `new_required_requirement`, which is the hook the notifications phase
+will use.
+
+Two fields are derived identically in `orbit/derived.py` and
+`lib/models/application_status.dart`, and never stored:
+
+- `applicationComplete` — every `required` id appears in
+  `completedRequirementIds`; an empty required set is complete
+- `actionNeeded` — not opted out, not complete, status is
+  `registration_open` or `in_progress`, and the deadline is still ahead
+
+`actionNeeded` raises a card one step up the urgency ladder, so an unchecked
+required step makes a five-day deadline render in the coral band rather than
+amber. Nothing else about the card changes.
+
 ### Extraction model
 
 `llm_extract` calls Gemini through the `google-genai` SDK with API-key auth,

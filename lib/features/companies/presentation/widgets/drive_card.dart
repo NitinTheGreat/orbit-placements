@@ -4,20 +4,24 @@ import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/pressable.dart';
 import '../../../../core/widgets/status_chip.dart';
 import '../../../../core/widgets/urgency_rail.dart';
+import '../../../../models/application_status.dart';
 import '../../../../models/company.dart';
+import '../../../../models/student_company_status.dart';
 import '../company_format.dart';
 
 class DriveCard extends StatelessWidget {
-  const DriveCard({super.key, required this.company, this.onTap});
+  const DriveCard({super.key, required this.company, this.status, this.onTap});
 
   final Company company;
+  final StudentCompanyStatus? status;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = OrbitTheme.of(context);
-    final urgency = deadlineUrgency(company.registrationDeadline);
+    final application = DriveApplication(company: company, status: status);
+    final urgency = application.urgency;
 
     return Pressable(
       onTap: onTap,

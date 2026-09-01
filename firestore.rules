@@ -59,13 +59,13 @@ service cloud.firestore {
         && request.resource.data.studentId == request.auth.uid
         && statusId == request.auth.uid + '_' + request.resource.data.companyId
         && request.resource.data.keys().hasOnly(
-             ['studentId', 'companyId', 'optedIn', 'updatedAt', 'source'])
-        && request.resource.data.optedIn is bool;
+             ['studentId', 'companyId', 'optedIn', 'completedRequirementIds',
+              'updatedAt', 'source']);
 
       allow update: if isVitStudent()
         && resource.data.studentId == request.auth.uid
-        && changedKeys().hasOnly(['optedIn', 'updatedAt'])
-        && request.resource.data.optedIn is bool;
+        && changedKeys().hasOnly(
+             ['optedIn', 'completedRequirementIds', 'updatedAt']);
 
       allow delete: if isAdmin();
     }

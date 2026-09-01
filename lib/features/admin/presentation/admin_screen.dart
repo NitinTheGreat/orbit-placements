@@ -19,12 +19,12 @@ class RequirementDraft {
   bool isRequired = true;
 
   CompanyRequirement toRequirement() {
-    final type = typeController.text.trim();
     final url = urlController.text.trim();
     final label = labelController.text.trim();
+    final type = RequirementType.fromWire(typeController.text.trim());
     return CompanyRequirement(
-      id: slugify(label),
-      type: type.isEmpty ? 'other' : type,
+      id: slugify('${type.wireName} $label'),
+      type: type,
       label: label,
       url: url.isEmpty ? null : url,
       isRequired: isRequired,
@@ -297,7 +297,7 @@ class _RequirementEditor extends StatelessWidget {
               controller: draft.typeController,
               decoration: const InputDecoration(
                 labelText: 'Type',
-                hintText: 'form, oa, ppt, resume',
+                hintText: 'neopat, google_form, company_site, other',
               ),
             ),
             const SizedBox(height: 12),

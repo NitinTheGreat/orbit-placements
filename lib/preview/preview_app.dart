@@ -30,20 +30,20 @@ List<Company> sampleCompanies() {
       requirements: const [
         CompanyRequirement(
           id: 'registration-form',
-          type: 'form',
+          type: RequirementType.googleForm,
           label: 'Fill the registration form on the portal',
           url: 'https://forms.example.com/rubrik-2026',
           isRequired: true,
         ),
         CompanyRequirement(
           id: 'resume',
-          type: 'resume',
+          type: RequirementType.other,
           label: 'Upload a one-page resume',
           isRequired: true,
         ),
         CompanyRequirement(
           id: 'ppt',
-          type: 'ppt',
+          type: RequirementType.other,
           label: 'Attend the pre-placement talk',
           isRequired: false,
         ),

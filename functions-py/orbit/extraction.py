@@ -13,7 +13,13 @@ SYSTEM_PROMPT = (
     "structured records. Report only what the email states. When a field is "
     "not stated, leave it null rather than inferring it. The email may "
     "announce a new drive, announce a new round of an existing drive, or "
-    "report the result of a round that already happened."
+    "report the result of a round that already happened. "
+    "For requirements, list only steps the email actually asks students to "
+    "do. Use type 'neopat' only when the email explicitly mentions NeoPAT or "
+    "NeoPAT registration; never infer NeoPAT from the fact that this is a "
+    "placement drive. Use 'google_form' for a Google Form link, "
+    "'company_site' for a registration page on the company's own site, and "
+    "'other' for anything else."
 )
 
 
@@ -49,7 +55,7 @@ class CompanyInfo(BaseModel):
 
 
 class RequirementInfo(BaseModel):
-    type: str = "other"
+    type: Literal["neopat", "google_form", "company_site", "other"] = "other"
     label: str
     url: str | None = None
     required: bool = True

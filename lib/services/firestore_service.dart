@@ -103,6 +103,26 @@ class FirestoreService {
         );
   }
 
+  Future<void> setRequirementCompleted({
+    required String studentId,
+    required String companyId,
+    required String requirementId,
+    required bool completed,
+  }) {
+    final id = StudentCompanyStatus.docIdFor(
+      studentId: studentId,
+      companyId: companyId,
+    );
+    return _statuses.doc(id).set(<String, dynamic>{
+      'studentId': studentId,
+      'companyId': companyId,
+      'completedRequirementIds': completed
+          ? FieldValue.arrayUnion(<String>[requirementId])
+          : FieldValue.arrayRemove(<String>[requirementId]),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   Future<void> setOptedIn({
     required String studentId,
     required String companyId,

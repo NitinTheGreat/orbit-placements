@@ -13,6 +13,7 @@ import '../../../services/firestore_service.dart';
 import '../../../services/sync_service.dart';
 import 'company_format.dart';
 import 'company_page_controller.dart';
+import 'drive_filter.dart';
 import 'drive_list_empty_state.dart';
 import 'widgets/drive_card.dart';
 
@@ -32,6 +33,7 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
   final ScrollController _scrollController = ScrollController();
 
   bool _showAllDespiteOptOut = false;
+  DriveFilter _filter = DriveFilter.all;
 
   @override
   void initState() {
@@ -157,12 +159,28 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
                         studentId,
                       ),
                       builder: (context, snapshot) {
-                        final optedOutCount = (snapshot.data ?? [])
-                            .where((status) => status.isOptedOut)
-                            .length;
-                        return _buildBody(
-                          gmailConnected: session.gmailSync.isConnected,
-                          optedOutCount: optedOutCount,
+                        final statuses = snapshot.data ?? const [];
+                        final byCompany = {
+                          for (final status in statuses)
+                            status.companyId: status,
+                        };
+                        return Column(
+                          children: [
+                            _FilterChips(
+                              selected: _filter,
+                              onSelect: (filter) =>
+                                  setState(() => _filter = filter),
+                            ),
+                            Expanded(
+                              child: _buildBody(
+                                gmailConnected: session.gmailSync.isConnected,
+                                optedOutCount: statuses
+                                    .where((s) => s.isOptedOut)
+                                    .length,
+                                statusesByCompanyId: byCompany,
+                              ),
+                            ),
+                          ],
                         );
                       },
                     ),
@@ -176,6 +194,7 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
   Widget _buildBody({
     required bool gmailConnected,
     required int optedOutCount,
+    required Map<String, StudentCompanyStatus> statusesByCompanyId,
   }) {
     if (_controller.error != null) {
       return RefreshIndicator(
@@ -206,14 +225,43 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
       );
     }
 
-    final companies = _controller.companies;
+    final loaded = _controller.companies;
+    final companies = applyFilter(
+      filter: _filter,
+      companies: loaded,
+      statusesByCompanyId: statusesByCompanyId,
+    );
+
+    if (_filter != DriveFilter.all && companies.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _refresh,
+        child: ListView(
+          controller: _scrollController,
+          children: [
+            const SizedBox(height: 60),
+            OrbitEmptyState(
+              icon: _filter == DriveFilter.actionNeeded
+                  ? Icons.check_circle_outline
+                  : Icons.filter_list_off,
+              headline: _filter == DriveFilter.actionNeeded
+                  ? "You're caught up"
+                  : 'Nothing here',
+              guidance: _filter == DriveFilter.actionNeeded
+                  ? ''
+                  : 'No drives match this filter yet.',
+            ),
+          ],
+        ),
+      );
+    }
+
     final emptyState = _showAllDespiteOptOut
         ? null
         : resolveEmptyState(
             gmailConnected: gmailConnected,
-            companyCount: companies.length,
+            companyCount: loaded.length,
             optedOutOfAll: everyDriveOptedOut(
-              companyCount: companies.length,
+              companyCount: loaded.length,
               optedOutCount: optedOutCount,
             ),
           );
@@ -266,6 +314,7 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
           final company = companies[index];
           final card = DriveCard(
             company: company,
+            status: statusesByCompanyId[company.id],
             onTap: () => context.goNamed(
               AppRoutes.companyDetail,
               pathParameters: {'companyId': company.id},
@@ -331,6 +380,59 @@ class _EmptyStateView extends StatelessWidget {
           ),
         );
     }
+  }
+}
+
+class _FilterChips extends StatelessWidget {
+  const _FilterChips({required this.selected, required this.onSelect});
+
+  final DriveFilter selected;
+  final ValueChanged<DriveFilter> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = OrbitTheme.of(context);
+
+    return SizedBox(
+      height: 44,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: OrbitSpacing.lg),
+        itemCount: DriveFilter.values.length,
+        separatorBuilder: (context, index) =>
+            const SizedBox(width: OrbitSpacing.sm),
+        itemBuilder: (context, index) {
+          final filter = DriveFilter.values[index];
+          final active = filter == selected;
+          return Center(
+            child: Pressable(
+              onTap: () => onSelect(filter),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: OrbitSpacing.lg,
+                  vertical: OrbitSpacing.sm,
+                ),
+                decoration: BoxDecoration(
+                  color: active ? colors.accentWash : colors.surfaceRaised,
+                  borderRadius: BorderRadius.circular(OrbitRadius.control),
+                  border: Border.all(
+                    color: active ? colors.accentEdge : colors.border,
+                  ),
+                ),
+                child: Text(
+                  filter.label,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: active ? colors.accentInk : colors.inkMuted,
+                    fontWeight: active ? FontWeight.w600 : null,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 

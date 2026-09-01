@@ -94,7 +94,11 @@ class RecordingExtractor:
                 "result": "invited",
             },
             "requirements": [
-                {"type": "form", "label": "Fill the registration form", "required": True}
+                {
+                    "type": "google_form",
+                    "label": "Fill the registration form",
+                    "required": True,
+                }
             ],
         }
 
@@ -273,7 +277,10 @@ def test_creating_the_first_round_bumps_company_status():
     assert payload["status"] == "in_progress"
     assert payload["rounds"][0]["id"] == "technical-round-1"
     assert payload["rounds"][0]["order"] == 1
-    assert payload["requirements"][0]["id"] == "fill-the-registration-form"
+    assert (
+        payload["requirements"][0]["id"]
+        == "google-form-fill-the-registration-form"
+    )
 
 
 def test_repeat_result_for_same_round_overwrites_in_place():

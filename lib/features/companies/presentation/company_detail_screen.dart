@@ -7,10 +7,12 @@ import '../../../core/theme/app_tokens.dart';
 import '../../../core/widgets/orbit_notice.dart';
 import '../../../core/widgets/status_chip.dart';
 import '../../../core/widgets/urgency_rail.dart';
+import '../../../models/application_status.dart';
 import '../../../models/company.dart';
 import '../../../models/student_company_status.dart';
 import '../../../services/firestore_service.dart';
 import 'company_format.dart';
+import 'widgets/requirements_checklist.dart';
 
 class CompanyDetailScreen extends StatefulWidget {
   const CompanyDetailScreen({super.key, required this.companyId});
@@ -110,7 +112,7 @@ class _DetailBody extends StatelessWidget {
 
   Widget _content(BuildContext context, StudentCompanyStatus? status) {
     final theme = Theme.of(context);
-    final colors = OrbitTheme.of(context);
+    final application = DriveApplication(company: company, status: status);
     final urgency = deadlineUrgency(company.registrationDeadline);
 
     return ListView(
@@ -175,24 +177,26 @@ class _DetailBody extends StatelessWidget {
         const SizedBox(height: OrbitSpacing.xl),
         _RoundsTimeline(company: company, status: status),
         const SizedBox(height: OrbitSpacing.xl),
-        Text('What you need to submit', style: theme.textTheme.titleLarge),
-        const SizedBox(height: OrbitSpacing.md),
-        if (company.requirements.isEmpty)
-          Container(
-            padding: const EdgeInsets.all(OrbitSpacing.lg),
-            decoration: BoxDecoration(
-              color: colors.surfaceSunken,
-              borderRadius: BorderRadius.circular(OrbitRadius.control),
-            ),
-            child: Text(
-              'Nothing listed yet. Check your mail for the registration form.',
-              style: theme.textTheme.bodySmall,
-            ),
-          )
-        else
-          ...company.requirements.map(
-            (requirement) => _RequirementRow(requirement: requirement),
-          ),
+        const SizedBox(height: OrbitSpacing.xl),
+        RequirementsChecklist(
+          company: company,
+          completedIds: status?.completedRequirementIds ?? const [],
+          editable: application.isEditable,
+          onToggle: (requirementId, completed) {
+            final studentId = SessionScope.of(context).user?.uid;
+            if (studentId == null) {
+              return;
+            }
+            firestoreService.setRequirementCompleted(
+              studentId: studentId,
+              companyId: company.id,
+              requirementId: requirementId,
+              completed: completed,
+            );
+          },
+        ),
+        const SizedBox(height: OrbitSpacing.xl),
+        SourceReference(company: company),
       ],
     );
   }
@@ -237,8 +241,8 @@ class _TrackingToggle extends StatelessWidget {
         title: Text('Track this drive', style: theme.textTheme.labelLarge),
         subtitle: Text(
           tracking
-              ? 'Orbit updates your progress from your mail.'
-              : 'Orbit ignores this drive when reading your mail.',
+              ? 'Orbit follows this drive and updates your progress.'
+              : 'Orbit is not following this drive.',
           style: theme.textTheme.bodySmall,
         ),
         value: tracking,
@@ -551,89 +555,6 @@ class _Fact extends StatelessWidget {
                 fontSize: 15,
                 color: missing ? colors.inkFaint : colors.ink,
               ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RequirementRow extends StatelessWidget {
-  const _RequirementRow({required this.requirement});
-
-  final CompanyRequirement requirement;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = OrbitTheme.of(context);
-    final hasUrl = requirement.url != null && requirement.url!.isNotEmpty;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: OrbitSpacing.sm),
-      padding: const EdgeInsets.all(OrbitSpacing.lg),
-      decoration: BoxDecoration(
-        color: colors.surfaceRaised,
-        borderRadius: BorderRadius.circular(OrbitRadius.control),
-        border: Border.all(color: colors.border),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 22,
-            height: 22,
-            decoration: BoxDecoration(
-              color: requirement.isRequired
-                  ? colors.accentWash
-                  : colors.surfaceSunken,
-              borderRadius: BorderRadius.circular(7),
-            ),
-            child: Icon(
-              requirement.isRequired ? Icons.priority_high : Icons.remove,
-              size: 14,
-              color: requirement.isRequired
-                  ? colors.accentInk
-                  : colors.inkFaint,
-            ),
-          ),
-          const SizedBox(width: OrbitSpacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  requirement.label.isEmpty
-                      ? requirement.type
-                      : requirement.label,
-                  style: theme.textTheme.bodyLarge?.copyWith(fontSize: 15),
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  requirement.isRequired
-                      ? 'Required to be considered'
-                      : 'Optional',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: requirement.isRequired
-                        ? colors.accentInk
-                        : colors.inkFaint,
-                  ),
-                ),
-                if (hasUrl) ...[
-                  const SizedBox(height: OrbitSpacing.sm),
-                  Text(
-                    requirement.url!,
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: colors.accentInk,
-                      decoration: TextDecoration.underline,
-                      decorationColor: colors.accentInk.withValues(alpha: 0.4),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
             ),
           ),
         ],

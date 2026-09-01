@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Protocol
@@ -96,23 +97,61 @@ def merge_rounds(
     return rounds, round_id, True
 
 
-def build_requirements(raw: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def requirement_id(kind: str, label: str, taken: Iterable[str]) -> str:
+    return unique_slug(f"{kind or 'other'} {label}", taken)
+
+
+def build_requirements(
+    raw: list[dict[str, Any]],
+    now: datetime | None = None,
+    message_id: str | None = None,
+) -> list[dict[str, Any]]:
     requirements: list[dict[str, Any]] = []
     for item in raw:
         label = (item.get("label") or "").strip()
         if not label:
             continue
-        requirement_id = unique_slug(label, [r["id"] for r in requirements])
+        kind = item.get("type") or "other"
+        new_id = requirement_id(kind, label, [r["id"] for r in requirements])
         requirements.append(
             {
-                "id": requirement_id,
-                "type": item.get("type") or "other",
+                "id": new_id,
+                "type": kind,
                 "label": label,
                 "url": item.get("url"),
                 "required": bool(item.get("required", True)),
+                "addedAt": now,
+                "sourceMessageId": message_id,
             }
         )
     return requirements
+
+
+def merge_requirements(
+    existing: list[dict[str, Any]], incoming: list[dict[str, Any]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    merged = [dict(item) for item in existing]
+    by_id = {item.get("id"): item for item in merged}
+    newly_required: list[dict[str, Any]] = []
+
+    for item in incoming:
+        current = by_id.get(item["id"])
+        if current is None:
+            merged.append(dict(item))
+            by_id[item["id"]] = merged[-1]
+            if item.get("required"):
+                newly_required.append(item)
+            continue
+        was_required = bool(current.get("required"))
+        current["label"] = item.get("label") or current.get("label")
+        if item.get("url"):
+            current["url"] = item["url"]
+        current["required"] = bool(item.get("required", current.get("required")))
+        current["type"] = item.get("type") or current.get("type") or "other"
+        if current["required"] and not was_required:
+            newly_required.append(current)
+
+    return merged, newly_required
 
 
 class Clock(Protocol):

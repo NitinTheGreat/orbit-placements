@@ -76,6 +76,25 @@ class CompanyRound {
   }
 }
 
+enum RequirementType {
+  neopat('neopat', 'NeoPAT'),
+  googleForm('google_form', 'Form'),
+  companySite('company_site', 'Company site'),
+  other('other', 'Step');
+
+  const RequirementType(this.wireName, this.label);
+
+  final String wireName;
+  final String label;
+
+  static RequirementType fromWire(Object? value) {
+    return RequirementType.values.firstWhere(
+      (type) => type.wireName == value,
+      orElse: () => RequirementType.other,
+    );
+  }
+}
+
 class CompanyRequirement {
   const CompanyRequirement({
     required this.id,
@@ -83,38 +102,49 @@ class CompanyRequirement {
     required this.label,
     this.url,
     this.isRequired = false,
+    this.addedAt,
+    this.sourceMessageId,
   });
 
   final String id;
-  final String type;
+  final RequirementType type;
   final String label;
   final String? url;
   final bool isRequired;
+  final DateTime? addedAt;
+  final String? sourceMessageId;
+
+  bool get hasUrl => url != null && url!.isNotEmpty;
 
   factory CompanyRequirement.fromMap(Map<String, dynamic> map) {
     final label = map['label'] as String? ?? '';
+    final type = RequirementType.fromWire(map['type']);
     return CompanyRequirement(
-      id: map['id'] as String? ?? slugify(label),
-      type: map['type'] as String? ?? 'other',
+      id: map['id'] as String? ?? slugify('${type.wireName} $label'),
+      type: type,
       label: label,
       url: map['url'] as String?,
       isRequired: map['required'] as bool? ?? false,
+      addedAt: (map['addedAt'] as Timestamp?)?.toDate(),
+      sourceMessageId: map['sourceMessageId'] as String?,
     );
   }
 
   Map<String, dynamic> toMap() {
     return <String, dynamic>{
       'id': id,
-      'type': type,
+      'type': type.wireName,
       'label': label,
       'url': url,
       'required': isRequired,
+      'addedAt': addedAt == null ? null : Timestamp.fromDate(addedAt!),
+      'sourceMessageId': sourceMessageId,
     };
   }
 
   CompanyRequirement copyWith({
     String? id,
-    String? type,
+    RequirementType? type,
     String? label,
     String? url,
     bool? isRequired,
@@ -150,6 +180,10 @@ class Company {
     this.requirements = const <CompanyRequirement>[],
     this.rounds = const <CompanyRound>[],
     this.createdAt,
+    this.sourceSubject,
+    this.sourceDate,
+    this.lastUpdatedSubject,
+    this.lastUpdatedDate,
   });
 
   final String id;
@@ -165,6 +199,16 @@ class Company {
   final List<CompanyRequirement> requirements;
   final List<CompanyRound> rounds;
   final DateTime? createdAt;
+  final String? sourceSubject;
+  final DateTime? sourceDate;
+  final String? lastUpdatedSubject;
+  final DateTime? lastUpdatedDate;
+
+  bool get hasSeparateUpdate =>
+      lastUpdatedSubject != null && lastUpdatedSubject != sourceSubject;
+
+  List<CompanyRequirement> get requiredRequirements =>
+      requirements.where((r) => r.isRequired).toList(growable: false);
 
   List<CompanyRound> get orderedRounds {
     final sorted = [...rounds]..sort((a, b) => a.order.compareTo(b.order));
@@ -217,7 +261,28 @@ class Company {
               .toList() ??
           const <CompanyRound>[],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      sourceSubject: data['sourceSubject'] as String?,
+      sourceDate: _epochToDate(data['sourceDate']),
+      lastUpdatedSubject:
+          (data['lastUpdatedFrom'] as Map<String, dynamic>?)?['subject']
+              as String?,
+      lastUpdatedDate: _epochToDate(
+        (data['lastUpdatedFrom'] as Map<String, dynamic>?)?['date'],
+      ),
     );
+  }
+
+  static DateTime? _epochToDate(Object? value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value);
+    }
+    if (value is num) {
+      return DateTime.fromMillisecondsSinceEpoch(value.toInt());
+    }
+    return null;
   }
 
   Map<String, dynamic> toFirestore() {

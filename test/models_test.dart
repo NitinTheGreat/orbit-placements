@@ -55,7 +55,7 @@ void main() {
     test('round-trips through a map keeping the id', () {
       const requirement = CompanyRequirement(
         id: 'fill-the-form',
-        type: 'form',
+        type: RequirementType.googleForm,
         label: 'Fill the form',
         url: 'https://example.com/form',
         isRequired: true,
@@ -74,7 +74,7 @@ void main() {
       final restored = CompanyRequirement.fromMap(<String, dynamic>{
         'label': 'Upload your resume',
       });
-      expect(restored.id, 'upload-your-resume');
+      expect(restored.id, 'other-upload-your-resume');
     });
   });
 

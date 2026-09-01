@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from langgraph.graph import END, START, StateGraph
@@ -11,6 +12,7 @@ from .state import IngestionState, halt
 from .store import (
     Deps,
     build_requirements,
+    merge_requirements,
     merge_round_history,
     merge_rounds,
     resolve_current_round_id,
@@ -24,6 +26,8 @@ COMPANY_WRITE = "company_write"
 MATCH_STUDENT = "match_student"
 CHECK_OPT_IN = "check_opt_in"
 UPDATE_STATUS = "update_student_status"
+
+logger = logging.getLogger("orbit.graph")
 
 
 def make_cheap_filter(deps: Deps):
@@ -131,11 +135,29 @@ def make_company_write(deps: Deps):
             "rounds": rounds,
         }
 
-        requirements = build_requirements(extraction.get("requirements") or [])
-        if requirements or not existing:
-            payload["requirements"] = requirements or (existing or {}).get(
-                "requirements", []
+        incoming = build_requirements(
+            extraction.get("requirements") or [], now, state.get("message_id")
+        )
+        merged, newly_required = merge_requirements(
+            list((existing or {}).get("requirements", [])), incoming
+        )
+        payload["requirements"] = merged
+        if existing and newly_required:
+            logger.info(
+                "new_required_requirement company=%s ids=%s message=%s",
+                company_id,
+                [r["id"] for r in newly_required],
+                state.get("message_id"),
             )
+
+        source = {
+            "subject": state.get("subject", ""),
+            "date": state.get("internal_date_ms", 0),
+        }
+        payload["lastUpdatedFrom"] = source
+        if not existing:
+            payload["sourceSubject"] = source["subject"]
+            payload["sourceDate"] = source["date"]
 
         company_id = deps.store.upsert_company(company_id, payload, now)
         deps.store.put_broadcast_company(state["body_hash"], company_id)

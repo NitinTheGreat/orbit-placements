@@ -98,6 +98,7 @@ class StudentCompanyStatus {
     this.roundHistory = const <RoundHistoryEntry>[],
     this.overallStatus = OverallStatus.active,
     this.optedIn,
+    this.completedRequirementIds = const <String>[],
     this.updatedAt,
     this.source = StatusSource.gmailIngestion,
   });
@@ -108,6 +109,7 @@ class StudentCompanyStatus {
   final List<RoundHistoryEntry> roundHistory;
   final OverallStatus overallStatus;
   final bool? optedIn;
+  final List<String> completedRequirementIds;
   final DateTime? updatedAt;
   final StatusSource source;
 
@@ -188,6 +190,11 @@ class StudentCompanyStatus {
           const <RoundHistoryEntry>[],
       overallStatus: OverallStatus.fromWire(data['overallStatus']),
       optedIn: data['optedIn'] as bool?,
+      completedRequirementIds:
+          (data['completedRequirementIds'] as List<dynamic>?)
+              ?.map((id) => id.toString())
+              .toList() ??
+          const <String>[],
       updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
       source: StatusSource.fromWire(data['source']),
     );
@@ -201,6 +208,7 @@ class StudentCompanyStatus {
       'roundHistory': roundHistory.map((entry) => entry.toMap()).toList(),
       'overallStatus': overallStatus.wireName,
       'optedIn': optedIn,
+      'completedRequirementIds': completedRequirementIds,
       'updatedAt': updatedAt == null
           ? FieldValue.serverTimestamp()
           : Timestamp.fromDate(updatedAt!),
