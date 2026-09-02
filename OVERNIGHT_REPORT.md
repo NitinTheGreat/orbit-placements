@@ -285,7 +285,89 @@ Deploy with:
 
 ## Part E — notifications
 
-**Status:** not started
+**Status:** done (code and tests; **not yet deployed** — same reason as Part D)
+
+### 11. FCM token registration
+**Checked first, as asked:** `fcmTokens` already existed on the `Student`
+model and in `toFirestore` from the original schema work, but nothing ever
+wrote to it and no messaging plugin was installed. So the field was
+scaffolding only — I built the rest.
+
+`lib/services/push_service.dart` requests permission, reads the token,
+writes it with `arrayUnion` so multiple devices accumulate, and subscribes
+to `onTokenRefresh`. Driven from `SessionController`: registration starts
+when a student profile loads, and sign-out removes that device's token and
+deletes it. Every step is wrapped so a permission refusal or a missing
+Play Services never breaks sign-in. `POST_NOTIFICATIONS` added to the
+manifest for Android 13+.
+
+Two Android channels are created client-side, matching the ids the server
+sends to: `orbit_updates` (default importance) and `orbit_deadlines` (max
+importance).
+
+### 12–13. Triggers
+The comparison logic is a pure function, `plan_notifications` in
+`functions-py/orbit/notifications.py`, taking before/after for **both** the
+status doc and the company doc. All four triggers:
+
+- `action_needed` on a false→true flip
+- `deadline_hour` when action is still needed and the deadline is inside one
+  hour — Android high-importance channel with `priority: high`, iOS
+  `apns-priority: 10` and `interruption-level: time-sensitive`
+- `round_result` when an entry changes to cleared, rejected, or not_listed
+- `new_round` when `currentRoundId` moves to a round with no prior history
+
+**Judgment call — I wired two triggers, not one.** You specified the trigger
+on `studentCompanyStatus`. Built exactly that way, the feature would have
+been mostly dead: both examples you gave for the action-needed flip (a new
+drive needing action, a required item reopening a completed one) are changes
+to the **company** document, not the status document. Worse, a brand-new
+drive has *no* status doc at all — creation is lazy by Part B's design — so
+there is nothing to trigger on. I therefore added `notifyOnCompanyChange`
+alongside `notifyOnStatusChange`; both call the same pure planner. The
+company trigger fans out over students, which is fine at this cohort size
+but is the thing to revisit if Orbit ever has thousands of users.
+
+**Judgment call:** a student who has opted out of a drive gets nothing at
+all from it.
+
+### 14. Dedup
+A `notificationLog/{studentId}_{companyId}` document holds the keys already
+sent. Each notification carries a key that encodes its state, so repeats are
+impossible while the state holds but a genuine change produces a new key:
+
+- action needed → the sorted set of outstanding required ids, so completing
+  one step and having another added later is a new notification, while the
+  same outstanding set never re-fires
+- deadline hour → the deadline timestamp, so one crossing sends once and an
+  extended deadline is a fresh crossing
+- round result → round id plus result, so a correction re-fires but a repeat
+  write does not
+- new round → the round id
+
+The log is capped at the most recent 200 keys per drive. Tokens that FCM
+reports as unregistered are removed from the student document automatically.
+
+**Verified:** 29 tests in `functions-py/tests/test_notifications.py` covering
+every flip direction, every non-firing case, all four triggers, the urgent
+tier's window boundaries, and dedup. 110 Python tests total, 178 Dart tests,
+analyze clean. I also constructed both message shapes against the installed
+`firebase_admin` 7.5.0 and printed them to confirm the channel ids,
+priorities and APNS headers come out right, rather than trusting the field
+names.
+
+**NEEDS YOUR ATTENTION — three things**
+
+1. **Not deployed.** Same caution as Part D: `firebase deploy --only
+   functions` will start sending real push to your device.
+2. **iOS time-sensitive needs an entitlement.** The
+   `com.apple.developer.usernotifications.time-sensitive` entitlement is not
+   in the project, because there is no signed iOS build to put it in. On
+   iOS the urgent tier will arrive as a normal high-priority alert until
+   that exists. Android's high-importance channel works today.
+3. **APNs is not configured in Firebase.** Even with the entitlement, iOS
+   push needs an APNs key uploaded to the Firebase console, which needs the
+   Apple Developer account discussed in Part H.
 
 ---
 

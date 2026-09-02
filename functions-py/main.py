@@ -8,13 +8,22 @@ from zoneinfo import ZoneInfo
 
 import firebase_admin
 from firebase_admin import firestore as admin_firestore
-from firebase_functions import https_fn, options, pubsub_fn, scheduler_fn
+from firebase_functions import (
+    firestore_fn,
+    https_fn,
+    options,
+    pubsub_fn,
+    scheduler_fn,
+)
 from firebase_functions.params import SecretParam, StringParam
 
 from orbit.config import IngestionConfig, load_config
 from orbit.extraction import GeminiExtractor
 from orbit.firestore_store import FirestoreStore
 from orbit.gmail_client import GmailClient, build_service
+from orbit.notifications import plan_notifications, undelivered
+from orbit.push import send as send_push
+from orbit.push import student_tokens, trim_keys
 from orbit.runner import (
     TokenRevoked,
     collect_message_ids,
@@ -273,3 +282,127 @@ def _require_student(
             "Finish onboarding first.",
         )
     return auth.uid, student, store
+
+
+def _with_id(snapshot) -> dict | None:
+    if snapshot is None or not snapshot.exists:
+        return None
+    data = snapshot.to_dict() or {}
+    data.setdefault("id", snapshot.id)
+    return data
+
+
+def _notify(
+    store: FirestoreStore,
+    student_id: str,
+    company_id: str,
+    *,
+    before_status: dict | None,
+    after_status: dict | None,
+    before_company: dict | None,
+    after_company: dict | None,
+) -> None:
+    planned = plan_notifications(
+        before_status=before_status,
+        after_status=after_status,
+        before_company=before_company,
+        after_company=after_company,
+        now=utc_now(),
+    )
+    if not planned:
+        return
+
+    already = store.get_notified_keys(student_id, company_id)
+    fresh = undelivered(planned, already)
+    if not fresh:
+        return
+
+    student = store.get_student(student_id)
+    tokens = student_tokens(student)
+    if not tokens:
+        logger.info("notify_skipped_no_tokens student=%s company=%s", student_id, company_id)
+        return
+
+    sent, stale = send_push(tokens, fresh)
+    if stale:
+        store.drop_fcm_tokens(student_id, stale)
+    store.put_notified_keys(
+        student_id,
+        company_id,
+        trim_keys(already + [n.key for n in fresh]),
+        utc_now(),
+    )
+    logger.info(
+        "notify student=%s company=%s triggers=%s sent=%s",
+        student_id,
+        company_id,
+        [n.trigger for n in fresh],
+        sent,
+    )
+
+
+@firestore_fn.on_document_written(
+    document="studentCompanyStatus/{statusId}",
+    region=REGION,
+    memory=options.MemoryOption.MB_256,
+)
+def notifyOnStatusChange(
+    event: firestore_fn.Event[firestore_fn.Change[firestore_fn.DocumentSnapshot | None]],
+) -> None:
+    before = _with_id(event.data.before)
+    after = _with_id(event.data.after)
+    current = after or before
+    if not current:
+        return
+
+    student_id = current.get("studentId")
+    company_id = current.get("companyId")
+    if not student_id or not company_id:
+        return
+
+    store = _store()
+    company = store.get_company(company_id)
+    if company is not None:
+        company.setdefault("id", company_id)
+
+    _notify(
+        store,
+        student_id,
+        company_id,
+        before_status=before,
+        after_status=after,
+        before_company=company,
+        after_company=company,
+    )
+
+
+@firestore_fn.on_document_written(
+    document="companies/{companyId}",
+    region=REGION,
+    memory=options.MemoryOption.MB_256,
+)
+def notifyOnCompanyChange(
+    event: firestore_fn.Event[firestore_fn.Change[firestore_fn.DocumentSnapshot | None]],
+) -> None:
+    before = _with_id(event.data.before)
+    after = _with_id(event.data.after)
+    if after is None:
+        return
+
+    company_id = event.params["companyId"]
+    after.setdefault("id", company_id)
+    if before is not None:
+        before.setdefault("id", company_id)
+
+    store = _store()
+    for student_id in store.tracked_student_ids():
+        status = store.get_status(student_id, company_id)
+        _notify(
+            store,
+            student_id,
+            company_id,
+            before_status=status,
+            after_status=status,
+            before_company=before,
+            after_company=after,
+        )

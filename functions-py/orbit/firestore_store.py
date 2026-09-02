@@ -5,7 +5,14 @@ from typing import Any
 
 from google.cloud import firestore
 
-from .store import BROADCASTS, COMPANIES, PROCESSED, STUDENT_STATUS, status_doc_id
+from .store import (
+    BROADCASTS,
+    COMPANIES,
+    NOTIFICATION_LOG,
+    PROCESSED,
+    STUDENT_STATUS,
+    status_doc_id,
+)
 
 
 class FirestoreStore:
@@ -77,6 +84,37 @@ class FirestoreStore:
     ) -> None:
         doc_id = status_doc_id(student_id, company_id)
         self._db.collection(STUDENT_STATUS).document(doc_id).set(payload, merge=True)
+
+    def get_notified_keys(self, student_id: str, company_id: str) -> list[str]:
+        doc_id = status_doc_id(student_id, company_id)
+        snapshot = self._db.collection(NOTIFICATION_LOG).document(doc_id).get()
+        if not snapshot.exists:
+            return []
+        return list((snapshot.to_dict() or {}).get("keys", []))
+
+    def put_notified_keys(
+        self, student_id: str, company_id: str, keys: list[str], now: Any
+    ) -> None:
+        doc_id = status_doc_id(student_id, company_id)
+        self._db.collection(NOTIFICATION_LOG).document(doc_id).set(
+            {
+                "studentId": student_id,
+                "companyId": company_id,
+                "keys": keys,
+                "updatedAt": now,
+            },
+            merge=True,
+        )
+
+    def drop_fcm_tokens(self, student_id: str, tokens: list[str]) -> None:
+        if not tokens:
+            return
+        self._db.collection("students").document(student_id).update(
+            {"fcmTokens": firestore.ArrayRemove(tokens)}
+        )
+
+    def tracked_student_ids(self) -> list[str]:
+        return [doc.id for doc in self._db.collection("students").stream()]
 
     def get_student(self, student_id: str) -> dict[str, Any] | None:
         snapshot = self._db.collection("students").document(student_id).get()

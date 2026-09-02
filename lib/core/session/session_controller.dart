@@ -7,6 +7,7 @@ import '../../models/gmail_sync.dart';
 import '../../models/student.dart';
 import '../../services/auth_service.dart';
 import '../../services/firestore_service.dart';
+import '../../services/push_service.dart';
 import '../constants/app_constants.dart';
 import 'session_status.dart';
 
@@ -14,8 +15,10 @@ class SessionController extends ChangeNotifier {
   SessionController({
     AuthService? authService,
     FirestoreService? firestoreService,
+    PushService? pushService,
   }) : _authService = authService ?? AuthService(),
-       _firestoreService = firestoreService ?? FirestoreService() {
+       _firestoreService = firestoreService ?? FirestoreService(),
+       _pushService = pushService ?? PushService() {
     _authSubscription = _authService.idTokenChanges().listen(
       _handleUserChanged,
     );
@@ -23,6 +26,7 @@ class SessionController extends ChangeNotifier {
 
   final AuthService _authService;
   final FirestoreService _firestoreService;
+  final PushService _pushService;
 
   StreamSubscription<User?>? _authSubscription;
   StreamSubscription<Student?>? _studentSubscription;
@@ -47,6 +51,7 @@ class SessionController extends ChangeNotifier {
       _user = null;
       _student = null;
       _isAdmin = false;
+      unawaited(_pushService.stop());
       _setStatus(SessionStatus.signedOut);
       return;
     }
@@ -66,6 +71,10 @@ class SessionController extends ChangeNotifier {
 
   void _handleStudentChanged(Student? student) {
     _student = student;
+    final uid = _user?.uid;
+    if (student != null && uid != null) {
+      unawaited(_pushService.start(uid));
+    }
     _setStatus(
       resolveSessionStatus(
         signedIn: _user != null,
@@ -92,7 +101,10 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> signOut() => _authService.signOut();
+  Future<void> signOut() async {
+    await _pushService.stop();
+    await _authService.signOut();
+  }
 
   @override
   void dispose() {

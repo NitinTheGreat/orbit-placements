@@ -17,6 +17,7 @@ COMPANIES = "companies"
 STUDENT_STATUS = "studentCompanyStatus"
 PROCESSED = "processedMessages"
 BROADCASTS = "broadcastHashes"
+NOTIFICATION_LOG = "notificationLog"
 CONFIG_DOC = "config/ingestion"
 
 
