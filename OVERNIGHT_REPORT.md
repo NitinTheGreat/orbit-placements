@@ -373,7 +373,49 @@ names.
 
 ## Part F — App Check, monitoring mode
 
-**Status:** not started
+**Status:** done, enforcement deliberately left off
+
+### 15. Client
+`firebase_app_check` 0.4.7 added and activated in `main()` before `runApp`.
+
+**Verified against the installed package, not the docs:** the `activate`
+call's `androidProvider`/`appleProvider` parameters are deprecated in this
+version, so I used the current `providerAndroid`/`providerApple` with the
+provider classes — `AndroidPlayIntegrityProvider` and
+`AppleAppAttestWithDeviceCheckFallbackProvider` in release,
+`AndroidDebugProvider`/`AppleDebugProvider` under `kDebugMode` so debug
+builds keep working. The whole call is wrapped so a failure to attest never
+stops the app launching.
+
+### Server side, done through the service account
+- Enabled `firebaseappcheck.googleapis.com`, which was not enabled on the
+  project. Enabling the API does not enforce anything.
+- Registered the Play Integrity provider for the Android app
+  (`com.nitin.orbit`), 1 hour token TTL.
+- Registered App Attest for the iOS app, same TTL.
+
+### 16. Enforcement — confirmed OFF
+I queried each service individually rather than assuming. All four report
+no enforcement config, which is `UNENFORCED`:
+
+    firestore.googleapis.com          UNENFORCED
+    firebasestorage.googleapis.com    UNENFORCED
+    identitytoolkit.googleapis.com    UNENFORCED
+    cloudfunctions.googleapis.com     UNENFORCED
+
+Nothing will be blocked. Tokens will start appearing in the App Check
+metrics once a build with this change runs on a device, which is what gives
+you the traffic data to decide from.
+
+**NEEDS YOUR ATTENTION — do not flip enforcement on for this app yet, and
+here is a reason beyond caution.** Play Integrity attestation requires the
+app to be registered with Google Play and linked to the Firebase project.
+Part G ships a sideloaded APK from a GitHub Release, which is *not*
+distributed through Play. Sideloaded installs will therefore likely fail
+attestation and produce zero valid tokens. If you turn enforcement on before
+the app is on Play, you will lock yourself and every friend out of Firestore
+entirely. Watch the metrics first — that is exactly what the unenforced mode
+is for.
 
 ---
 
