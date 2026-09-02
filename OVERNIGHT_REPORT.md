@@ -663,13 +663,56 @@ What that means in practice:
 
 ---
 
+## Where everything ended up
+
+| | |
+| --- | --- |
+| Android APK | https://github.com/NitinTheGreat/orbit-placements/releases/tag/v1.0.0 |
+| PWA | https://orbit-507316.web.app |
+| iOS unsigned ipa | build artifact on [run 33598049269](https://github.com/NitinTheGreat/orbit-placements/actions/runs/33598049269), 18.6 MB, expires 2 Oct |
+
+Every part committed and pushed as it finished — 12 commits, nothing held
+back on the local machine.
+
+**Final state:** 178 Dart tests, 113 Python tests, 24 Firestore rules tests,
+all passing. `flutter analyze` clean. Firestore rules and Cloud Functions
+deployed. Hosting deployed.
+
 ## Needs your attention
 
-1. **Part A** — confirm `BCT` maps to a CSE-family branch in
-   `vitBranchCodes`. It is your own code and it drives every branch flag you
-   see. I could not verify it empirically; the shortlists are keyed by NeoID.
-2. **Part F** — do not turn App Check enforcement on until sideloaded builds
-   are shown to produce valid tokens. They probably will not.
-3. **Part D** — decide whether "Not shortlisted" and "Not selected" should
-   read differently, or identically.
-4. Nothing else is blocking.
+**Decisions only you can make**
+
+1. **Confirm `BCT` is a CSE-family branch** in `vitBranchCodes`
+   (`lib/models/branch_eligibility.dart`). It is your own code and it decides
+   every branch flag you personally see. I could not verify it empirically —
+   your shortlists are keyed by NeoID with no branch column anywhere, so
+   there was no ground truth to derive it from. A wrong entry is the only
+   dangerous case; a missing one is harmless.
+2. **iOS: pick a lane.** The free sideloading path works today and costs you
+   nothing, at the price of a 7-day refresh per student. $99/year removes
+   that but needs a Mac you do not have. Full table in Part H.
+3. **"Not shortlisted" vs "Not selected"** — your brief pulled both ways.
+   I made them read differently. One line in `stage_pill.dart` if you
+   disagree.
+
+**Do not do this yet**
+
+4. **Do not enable App Check enforcement.** Sideloaded builds will likely
+   fail Play Integrity entirely, and enforcing would lock you and everyone
+   else out of Firestore. Watch the metrics first.
+
+**Known gaps, none blocking**
+
+5. Nothing in this session has been seen rendered on a device. Everything is
+   analyzer, unit, emulator and live-endpoint evidence. The tile layouts,
+   the profile chart, the launch animation timing, the home-screen widget at
+   different sizes, and the PWA's actual appearance are all unverified
+   visually.
+6. First-time Gmail connection does not work on the PWA (Part I item 3).
+7. The widget's background refresh is not reliable and is not claimed to be
+   (Part C). The FCM pipeline from Part E is the fix when you want it.
+8. iOS push needs an APNs key in Firebase and a time-sensitive entitlement
+   before the under-the-hour tier behaves differently there (Part E).
+9. The published APK was built at Part G, before the web-only changes. Those
+   changes are behaviourally identical on Android, so the release is current
+   in substance, but it is not byte-for-byte HEAD.
