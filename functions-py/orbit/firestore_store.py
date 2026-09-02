@@ -8,6 +8,7 @@ from google.cloud import firestore
 from .store import (
     BROADCASTS,
     COMPANIES,
+    ASSISTANT_USAGE,
     NOTIFICATION_LOG,
     PROCESSED,
     STUDENT_STATUS,
@@ -115,6 +116,37 @@ class FirestoreStore:
 
     def tracked_student_ids(self) -> list[str]:
         return [doc.id for doc in self._db.collection("students").stream()]
+
+    def get_assistant_usage(self, student_id: str) -> dict[str, Any] | None:
+        snapshot = (
+            self._db.collection(ASSISTANT_USAGE).document(student_id).get()
+        )
+        return snapshot.to_dict() if snapshot.exists else None
+
+    def put_assistant_usage(self, student_id: str, usage: dict[str, Any]) -> None:
+        self._db.collection(ASSISTANT_USAGE).document(student_id).set(
+            usage, merge=True
+        )
+
+    def companies_for_assistant(self, limit: int) -> list[dict[str, Any]]:
+        rows = []
+        for doc in self._db.collection(COMPANIES).limit(limit).stream():
+            data = doc.to_dict() or {}
+            data["id"] = doc.id
+            rows.append(data)
+        return rows
+
+    def statuses_for_student(self, student_id: str) -> dict[str, dict[str, Any]]:
+        rows: dict[str, dict[str, Any]] = {}
+        query = self._db.collection(STUDENT_STATUS).where(
+            "studentId", "==", student_id
+        )
+        for doc in query.stream():
+            data = doc.to_dict() or {}
+            company_id = data.get("companyId")
+            if company_id:
+                rows[company_id] = data
+        return rows
 
     def get_student(self, student_id: str) -> dict[str, Any] | None:
         snapshot = self._db.collection("students").document(student_id).get()

@@ -335,7 +335,74 @@ notification.
 
 ## Part E — chatbot
 
-**Status:** not started
+**Status:** done and deployed
+
+### 12. The callable — `askOrbit`
+Single-turn, preset-first. `functions-py/orbit/assistant.py` holds the pure
+parts; `main.py` holds the callable.
+
+**Scoping is enforced in three independent places**, because this is the one
+part where a mistake leaks another student's data:
+
+1. `_require_student` already gates on a verified `@vitstudent.ac.in` token
+   and returns that uid; nothing else is trusted from the request.
+2. `statuses_for_student` queries `where studentId == <that uid>`. There is a
+   unit test that inspects the query the store actually builds, so the filter
+   cannot be silently dropped.
+3. `build_context` only ever renders companies plus that student's own
+   statuses. Tests assert another student's registration number and name
+   never appear, and that the student's own regNo appears exactly once.
+
+The context is bounded at 40 companies, and it omits drives the student
+opted out of and untracked drives that are a confident branch mismatch — so
+the assistant talks about the same drives the app shows.
+
+The prompt tells the model the context is everything it has, to say it does
+not know rather than invent, never to name another student, and to stay
+under five sentences in plain prose.
+
+### 13. Preset chips — all five, tap-first
+`due_24h`, `missing_now`, `changed_since_yesterday`, `active_drives`,
+`new_unreviewed`. A preset id is validated against the server-side map, so an
+unknown id is rejected rather than passed to the model. Free text is the
+fallback field, capped at 400 characters, and a preset always wins over text
+if both arrive.
+
+### 14. UI — floating, compact panel
+`AssistantButton` sits in the Scaffold's `floatingActionButton` slot with
+`endFloat`, which is what keeps it clear of the bottom nav bar **by
+construction** rather than by a hand-tuned offset. Tapping opens a bottom
+sheet sized to its content, never a full screen. Existing tokens only —
+`accent` ground, `accentWash` chips, `urgentWash` for errors.
+
+**Overlap check, done as a real test rather than by eye:** three widget
+tests render the button and a nav bar at 320x480 logical pixels (the
+smallest Android phone class) and assert the button's rect does not overlap
+the bar's, that its bottom is above the bar's top, and that it stays fully
+on screen. A third case repeats it with a 96px bar. Note this exercises the
+same Scaffold arrangement `HomeShell` uses, not `HomeShell` itself, which
+needs Firebase to build.
+
+### Rate limit
+20 questions per student per UTC day, in `assistantUsage/{studentId}`.
+Counted **before** the model call, so a failed generation still costs a
+question and cannot be used to loop. Yesterday's count never carries over.
+
+**Security test, as asked — and it found something worth having.** The
+rate-limit counter lives in a collection with no client rule, so the
+catch-all deny covers it. I proved that rather than assuming:
+a student cannot read their own counter, **cannot reset it to zero**, cannot
+read anyone else's counter, cannot read another student's profile, cannot
+read another student's drive status, and cannot write into one — while
+still being able to read their own. 31 rules tests pass.
+
+**Verified:** 28 Python tests for the assistant, 5 widget tests, 31 rules
+tests, 291 Dart tests, 250 Python tests, analyze clean. `askOrbit` deployed
+to `orbit-507316`.
+
+**Not verified:** no real question has been put to the live model. The
+callable requires a signed-in VIT account, which I do not have. The answer
+quality and the "say you do not know" behaviour are unexercised.
 
 ---
 

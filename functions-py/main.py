@@ -21,6 +21,16 @@ from orbit.config import IngestionConfig, load_config
 from orbit.extraction import GeminiExtractor
 from orbit.firestore_store import FirestoreStore
 from orbit.gmail_client import GmailClient, build_service
+from orbit.assistant import (
+    MAX_COMPANIES_IN_CONTEXT,
+    PRESETS,
+    AssistantError,
+    GeminiAnswerer,
+    build_context,
+    next_usage,
+    resolve_question,
+    within_daily_limit,
+)
 from orbit.branches import is_confident_mismatch
 from orbit.notifications import plan_new_company, plan_notifications, undelivered
 from orbit.push import send as send_push
@@ -451,3 +461,56 @@ def notifyOnCompanyChange(
             before_company=before,
             after_company=after,
         )
+
+
+@https_fn.on_call(
+    region=REGION,
+    secrets=[GEMINI_API_KEY],
+    memory=options.MemoryOption.MB_512,
+    timeout_sec=60,
+)
+def askOrbit(req: https_fn.CallableRequest) -> dict:
+    student_id, student, store = _require_student(req)
+
+    data = req.data or {}
+    try:
+        question = resolve_question(data.get("presetId"), data.get("text"))
+    except AssistantError as error:
+        raise https_fn.HttpsError(
+            https_fn.FunctionsErrorCode.INVALID_ARGUMENT, error.message
+        ) from error
+
+    now = utc_now()
+    usage = store.get_assistant_usage(student_id)
+    if not within_daily_limit(usage, now):
+        raise https_fn.HttpsError(
+            https_fn.FunctionsErrorCode.RESOURCE_EXHAUSTED,
+            "You have reached today's question limit. Try again tomorrow.",
+        )
+
+    store.put_assistant_usage(student_id, next_usage(usage, now))
+
+    context = build_context(
+        student=student,
+        companies=store.companies_for_assistant(MAX_COMPANIES_IN_CONTEXT),
+        statuses_by_company=store.statuses_for_student(student_id),
+        now=now,
+    )
+
+    try:
+        answer = GeminiAnswerer()(question.question, context)
+    except AssistantError as error:
+        raise https_fn.HttpsError(
+            https_fn.FunctionsErrorCode.INTERNAL, error.message
+        ) from error
+    except Exception as error:
+        logger.exception("assistant_failed student=%s", student_id)
+        raise https_fn.HttpsError(
+            https_fn.FunctionsErrorCode.INTERNAL,
+            "Orbit could not answer that right now.",
+        ) from error
+
+    logger.info(
+        "assistant student=%s preset=%s", student_id, question.preset_id
+    )
+    return {"question": question.question, "answer": answer, "presets": PRESETS}

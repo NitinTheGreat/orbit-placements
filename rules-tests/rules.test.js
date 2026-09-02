@@ -290,3 +290,85 @@ describe('one-time NeoID edit', () => {
     );
   });
 });
+
+describe('assistant data scoping', () => {
+  const OTHER = 'student-2';
+
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, 'assistantUsage', UID), { day: '2026-09-02', count: 3 });
+      await setDoc(doc(db, 'assistantUsage', OTHER), { day: '2026-09-02', count: 1 });
+      await setDoc(doc(db, 'students', OTHER), {
+        vitEmail: 'other@vitstudent.ac.in',
+        name: 'Someone Else',
+        neoId: 'OTHER123',
+        regNo: '21BCE1234',
+      });
+      await setDoc(doc(db, 'studentCompanyStatus', `${OTHER}_${COMPANY}`), {
+        studentId: OTHER,
+        companyId: COMPANY,
+        optedIn: true,
+        completedRequirementIds: ['neopat'],
+        roundHistory: [{ roundId: 'oa', result: 'cleared' }],
+      });
+    });
+  });
+
+  test('a student cannot read their own rate-limit counter', async () => {
+    const context = testEnv.authenticatedContext(UID, vitToken);
+    await assertFails(getDoc(doc(context.firestore(), 'assistantUsage', UID)));
+  });
+
+  test('a student cannot reset their own rate limit', async () => {
+    const context = testEnv.authenticatedContext(UID, vitToken);
+    await assertFails(
+      setDoc(doc(context.firestore(), 'assistantUsage', UID), {
+        day: '2026-09-02',
+        count: 0,
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(context.firestore(), 'assistantUsage', UID), { count: 0 }),
+    );
+  });
+
+  test('a student cannot read anyone else rate-limit counter', async () => {
+    const context = testEnv.authenticatedContext(UID, vitToken);
+    await assertFails(getDoc(doc(context.firestore(), 'assistantUsage', OTHER)));
+  });
+
+  test('a student cannot read another student profile', async () => {
+    const context = testEnv.authenticatedContext(UID, vitToken);
+    await assertFails(getDoc(doc(context.firestore(), 'students', OTHER)));
+  });
+
+  test('a student cannot read another student drive status', async () => {
+    const context = testEnv.authenticatedContext(UID, vitToken);
+    await assertFails(
+      getDoc(doc(context.firestore(), 'studentCompanyStatus', `${OTHER}_${COMPANY}`)),
+    );
+  });
+
+  test('a student cannot write into another student drive status', async () => {
+    const context = testEnv.authenticatedContext(UID, vitToken);
+    await assertFails(
+      updateDoc(
+        doc(context.firestore(), 'studentCompanyStatus', `${OTHER}_${COMPANY}`),
+        { completedRequirementIds: [], updatedAt: new Date() },
+      ),
+    );
+  });
+
+  test('a student can still read their own drive status', async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'studentCompanyStatus', STATUS_ID), {
+        studentId: UID,
+        companyId: COMPANY,
+        optedIn: true,
+      });
+    });
+    const context = testEnv.authenticatedContext(UID, vitToken);
+    await assertSucceeds(getDoc(statusDoc(context)));
+  });
+});

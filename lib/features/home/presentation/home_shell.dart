@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/session/session_controller.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/widgets/pressable.dart';
+import '../../assistant/presentation/assistant_button.dart';
 import '../../companies/presentation/company_list_screen.dart';
 import '../../companies/presentation/drive_filter.dart';
 import '../../profile/presentation/profile_screen.dart';
@@ -80,6 +81,8 @@ class HomeShell extends StatelessWidget {
               ),
             ),
           ),
+          floatingActionButton: const AssistantButton(),
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
           bottomNavigationBar: _HomeBar(
             index: index,
             onSelect: (next) => homeTabIndex.value = next,
