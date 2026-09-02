@@ -42,7 +42,17 @@ service cloud.firestore {
         && !request.resource.data.keys().hasAny(['gmailSync']);
       allow update: if isOwner(uid)
         && request.resource.data.vitEmail == resource.data.vitEmail
-        && !changedKeys().hasAny(['gmailSync']);
+        && !changedKeys().hasAny(['gmailSync'])
+        && (
+             !changedKeys().hasAny(['neoId'])
+             || (
+                  !('neoIdEditedAt' in resource.data)
+                  && changedKeys().hasOnly(['neoId', 'neoIdEditedAt'])
+                  && changedKeys().hasAll(['neoId', 'neoIdEditedAt'])
+                  && request.resource.data.neoId is string
+                  && request.resource.data.neoId.size() > 0
+                )
+           );
       allow delete: if false;
     }
 

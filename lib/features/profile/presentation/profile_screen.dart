@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/session/session_controller.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../models/branch_eligibility.dart';
+import '../../../models/display_name.dart';
 import '../../../models/student_company_status.dart';
 import '../../../services/firestore_service.dart';
 import '../../companies/presentation/company_page_controller.dart';
@@ -37,6 +38,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void _onControllerChanged() {
     if (mounted) {
       setState(() {});
+    }
+  }
+
+  Future<void> _editNeoId(String uid, String? current) async {
+    final controller = TextEditingController(text: current ?? '');
+    final confirmed = await showDialog<String>(
+      context: context,
+      builder: (context) => _NeoIdDialog(controller: controller),
+    );
+    controller.dispose();
+
+    if (confirmed == null || confirmed.isEmpty) {
+      return;
+    }
+
+    try {
+      await _firestoreService.updateNeoId(uid: uid, neoId: confirmed);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('NeoID saved. That was your one edit.')),
+        );
+      }
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save that. Try again.')),
+        );
+      }
     }
   }
 
@@ -84,16 +113,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              student?.name.trim().isNotEmpty == true
-                                  ? student!.name
-                                  : 'Your profile',
+                              displayName(
+                                name: student?.name,
+                                regNo: student?.regNo,
+                              ),
                               style: theme.textTheme.headlineMedium,
                             ),
                             const SizedBox(height: 2),
                             Text(
                               branch == null
-                                  ? 'NeoID ${student?.neoId ?? '—'}'
-                                  : 'NeoID ${student?.neoId ?? '—'} · '
+                                  ? (student?.regNo ?? '')
+                                  : '${student?.regNo ?? ''} · '
                                         '${branch.name}',
                               style: theme.textTheme.bodySmall,
                             ),
@@ -121,6 +151,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                         ],
+                      ),
+                      const SizedBox(height: OrbitSpacing.md),
+                      _NeoIdCard(
+                        neoId: student?.neoId ?? '',
+                        canEdit: student?.canEditNeoId ?? false,
+                        onEdit: () => _editNeoId(studentId, student?.neoId),
                       ),
                       const SizedBox(height: OrbitSpacing.md),
                       _BreakdownCard(stats: stats),
@@ -285,6 +321,113 @@ class _BreakdownCard extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+class _NeoIdCard extends StatelessWidget {
+  const _NeoIdCard({
+    required this.neoId,
+    required this.canEdit,
+    required this.onEdit,
+  });
+
+  final String neoId;
+  final bool canEdit;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = OrbitTheme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(OrbitSpacing.lg),
+      decoration: BoxDecoration(
+        color: colors.surfaceRaised,
+        borderRadius: BorderRadius.circular(OrbitRadius.card),
+        border: Border.all(color: colors.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('NeoID', style: theme.textTheme.bodySmall),
+                const SizedBox(height: 2),
+                Text(
+                  neoId.isEmpty ? 'Not set' : neoId,
+                  style: theme.textTheme.titleMedium,
+                ),
+                const SizedBox(height: OrbitSpacing.xs),
+                Text(
+                  canEdit
+                      ? 'Shortlists are matched on this. You can correct it '
+                            'once.'
+                      : 'Already corrected once, so this is locked now.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.inkFaint,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (canEdit)
+            TextButton(onPressed: onEdit, child: const Text('Change'))
+          else
+            Icon(Icons.lock_outline, size: 18, color: colors.inkFaint),
+        ],
+      ),
+    );
+  }
+}
+
+class _NeoIdDialog extends StatelessWidget {
+  const _NeoIdDialog({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = OrbitTheme.of(context);
+
+    return AlertDialog(
+      backgroundColor: colors.surfaceRaised,
+      title: const Text('Change your NeoID'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'This is the one time you can change it. Orbit matches you to '
+            'shortlists on this value, so get it right before you save — '
+            'after this the field is locked.',
+            style: theme.textTheme.bodySmall?.copyWith(color: colors.urgentInk),
+          ),
+          const SizedBox(height: OrbitSpacing.lg),
+          TextField(
+            controller: controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(labelText: 'NeoID'),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Keep it as it is'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(
+            context,
+          ).pop(controller.text.trim().toUpperCase()),
+          child: const Text('Save, I am sure'),
+        ),
+      ],
     );
   }
 }

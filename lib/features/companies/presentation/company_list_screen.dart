@@ -8,6 +8,7 @@ import '../../../core/theme/app_tokens.dart';
 import '../../../core/widgets/orbit_notice.dart';
 import '../../../core/widgets/pressable.dart';
 import '../../../models/branch_eligibility.dart';
+import '../../../models/display_name.dart';
 import '../../../models/gmail_sync.dart';
 import '../../../models/student_company_status.dart';
 import '../../../services/firestore_service.dart';
@@ -86,20 +87,15 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
     await _controller.refresh();
   }
 
-  static String? _firstName(String? name) {
-    final trimmed = name?.trim();
-    if (trimmed == null || trimmed.isEmpty) {
-      return null;
-    }
-    return trimmed.split(RegExp(r'\s+')).first;
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = OrbitTheme.of(context);
     final session = SessionScope.of(context);
-    final firstName = _firstName(session.student?.name);
+    final greeting = greetingName(
+      name: session.student?.name,
+      regNo: session.student?.regNo,
+    );
     final studentId = session.user?.uid;
     final locked = widget.lock != null;
 
@@ -124,9 +120,9 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
                       children: [
                         Text(
                           widget.title ??
-                              (firstName == null
+                              (greeting == null
                                   ? 'Your drives'
-                                  : 'Hello, $firstName'),
+                                  : 'Hello, $greeting'),
                           style: theme.textTheme.headlineMedium,
                         ),
                         const SizedBox(height: 2),

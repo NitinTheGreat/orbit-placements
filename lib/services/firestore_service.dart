@@ -123,6 +123,13 @@ class FirestoreService {
     }, SetOptions(merge: true));
   }
 
+  Future<void> updateNeoId({required String uid, required String neoId}) {
+    return _students.doc(uid).update(<String, dynamic>{
+      'neoId': neoId,
+      'neoIdEditedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<void> setOptedIn({
     required String studentId,
     required String companyId,

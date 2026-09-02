@@ -160,7 +160,53 @@ spacing are unverified visually.
 
 ## Part C — Android home-screen widget
 
-**Status:** not started
+**Status:** done, with one honest caveat about refresh timing
+
+**Verified before building:** `home_widget` 0.9.3 is current on pub.dev and
+requires Flutter >= 3.38.1 against our 3.47.2. I read the installed
+package's own source for the API (`saveWidgetData`, `updateWidget` with
+`qualifiedAndroidName`) and copied the receiver/provider wiring from its
+example rather than from memory.
+
+`OrbitWidgetProvider` extends the plugin's `HomeWidgetProvider`, renders a
+`RemoteViews` layout on the brand navy with the mark, a headline, and up to
+two rows. Tapping anywhere opens the app.
+
+Content rules live in `lib/features/companies/presentation/widget_feed.dart`
+as a pure function so they are testable without Android: shortlisted or
+selected drives first (up to two, headline "You are through"), otherwise
+registration-open drives not yet opted into (headline "Open now"), soonest
+deadline first in both cases, concluded drives never shown.
+
+### The refresh caveat — read this one
+
+**Update on app foreground works** and is what the widget actually relies
+on: `WidgetRefresher` observes the app lifecycle and republishes on every
+resume.
+
+**True background refresh is not reliable and I have not claimed it works.**
+The `appwidget-provider` sets `updatePeriodMillis` to 30 minutes, but
+Android treats that as a floor of 30 minutes and freely ignores it under
+Doze, battery optimisation, and OEM task-killers — which on Indian OEM
+skins (Xiaomi, Realme, Oppo, Vivo) is aggressive. Worse, that system update
+only re-renders whatever the plugin last wrote to `SharedPreferences`; it
+does **not** re-read Firestore, because nothing runs Dart. So between app
+opens the widget can show stale data and there is no fix inside this
+plugin's model. Making it genuinely live needs either a WorkManager job
+calling back into a Dart isolate (`registerBackgroundCallback`) or an FCM
+data message that triggers a widget update — the FCM route is the better
+one and Part E is already putting that pipeline in place.
+
+**Verified:** 8 tests in `test/widget_feed_test.dart` covering the
+shortlisted-wins priority, the selected case, the opted-into exclusion, the
+two-slot cap, ordering, concluded exclusion, and both line formats. A debug
+APK builds clean, so the provider, layout, XML and manifest receiver all
+compile.
+**Assumed:** the widget has not been placed on a real home screen. Layout
+sizing at different widget dimensions is unverified.
+
+### iOS
+Not attempted, per your instruction that the iOS widget rides on Part H.
 
 ---
 
@@ -191,6 +237,61 @@ spacing are unverified visually.
 ## Part H — iOS, best effort
 
 **Status:** not started
+
+---
+
+## Part I — mid-session additions
+
+Requested while the session was running, after Part B was pushed:
+
+1. Greeting alias — name `Guneet` or regNo `23BCT0210` greets as `Ms Aurora`.
+2. One-time NeoID edit from the profile, with a warning that it is one time
+   only.
+3. iOS distribution — evaluate AltStore/Sideloadly sideloading and a PWA,
+   with a working PWA as the floor if nothing else lands.
+
+**Status:** 1 and 2 done, 3 folded into Part H.
+
+### 1. Greeting alias — done
+`lib/models/display_name.dart`. Matches on either the regNo `23BCT0210` or
+the name token `guneet`, case-insensitively.
+
+**Judgment call:** I match on *tokens*, not on a prefix, because the stored
+names in your Firestore include the regNo inline — yours is literally
+`Nitin Kumar Pandey 23BCT0098`. So the regNo is found whether it arrives in
+the `regNo` field or embedded in the name, and `Guneeta` does **not** match
+`Guneet`. Both are tested.
+
+**Judgment call:** the alias applies to the profile heading as well as the
+greeting, not just the `Hello,` line — otherwise the profile tab would still
+say Guneet and give it away.
+
+Also fixed while there: `firstNameOf` now skips a leading registration
+number, so a student stored as `23BCT0098 Nitin` is greeted `Hello, Nitin`
+rather than `Hello, 23BCT0098`.
+
+### 2. One-time NeoID edit — done
+A NeoID card on the profile shows the value, explains that shortlists are
+matched on it, and offers `Change` only while it has never been edited.
+The dialog states plainly that this is the one time it can change and that
+the field locks afterwards. Once used, the card shows a lock icon and the
+line "Already corrected once, so this is locked now."
+
+Enforced server-side, not just in the UI: `students/{uid}` update now
+permits a `neoId` change only when the document has no `neoIdEditedAt` and
+the write sets both `neoId` and `neoIdEditedAt` and nothing else.
+
+**A rules test caught a real hole here.** My first version used only
+`hasOnly(['neoId','neoIdEditedAt'])`, and because `hasOnly` is satisfied by
+a subset, a client could have changed `neoId` alone, never written the
+stamp, and edited it unlimited times. Added `hasAll` alongside it. Without
+that test the one-time lock would have shipped doing nothing.
+
+**Verified:** 24 rules tests pass against the Firestore emulator (7 of them
+new, covering the first edit, the missing stamp, the second attempt, an
+empty value, smuggling `regNo` in alongside, unrelated profile edits still
+working, and another student trying it). Rules deployed to `orbit-507316`.
+6 Dart tests for the alias. analyze clean, 173 Dart tests pass.
 
 ---
 

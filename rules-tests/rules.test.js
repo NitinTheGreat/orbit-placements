@@ -203,3 +203,90 @@ describe('studentCompanyStatus client update', () => {
     await assertFails(getDoc(statusDoc(context)));
   });
 });
+
+describe('one-time NeoID edit', () => {
+  const profile = {
+    vitEmail: 'nitin@vitstudent.ac.in',
+    name: 'Nitin Kumar Pandey 23BCT0098',
+    neoId: 'L5P2U7S5',
+    regNo: '23BCT0098',
+  };
+
+  function studentDoc(context) {
+    return doc(context.firestore(), 'students', UID);
+  }
+
+  async function seed(extra = {}) {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'students', UID), {
+        ...profile,
+        ...extra,
+      });
+    });
+  }
+
+  test('allows the first change when it stamps neoIdEditedAt', async () => {
+    await seed();
+    const context = testEnv.authenticatedContext(UID, vitToken);
+    await assertSucceeds(
+      updateDoc(studentDoc(context), {
+        neoId: 'CORRECT1',
+        neoIdEditedAt: new Date(),
+      }),
+    );
+  });
+
+  test('rejects a change that does not stamp neoIdEditedAt', async () => {
+    await seed();
+    const context = testEnv.authenticatedContext(UID, vitToken);
+    await assertFails(updateDoc(studentDoc(context), { neoId: 'CORRECT1' }));
+  });
+
+  test('rejects a second change once the stamp exists', async () => {
+    await seed({ neoIdEditedAt: new Date() });
+    const context = testEnv.authenticatedContext(UID, vitToken);
+    await assertFails(
+      updateDoc(studentDoc(context), {
+        neoId: 'AGAIN123',
+        neoIdEditedAt: new Date(),
+      }),
+    );
+  });
+
+  test('rejects an empty NeoID', async () => {
+    await seed();
+    const context = testEnv.authenticatedContext(UID, vitToken);
+    await assertFails(
+      updateDoc(studentDoc(context), { neoId: '', neoIdEditedAt: new Date() }),
+    );
+  });
+
+  test('rejects smuggling another field in alongside the edit', async () => {
+    await seed();
+    const context = testEnv.authenticatedContext(UID, vitToken);
+    await assertFails(
+      updateDoc(studentDoc(context), {
+        neoId: 'CORRECT1',
+        neoIdEditedAt: new Date(),
+        regNo: '23BCE0001',
+      }),
+    );
+  });
+
+  test('leaves unrelated profile edits working', async () => {
+    await seed({ neoIdEditedAt: new Date() });
+    const context = testEnv.authenticatedContext(UID, vitToken);
+    await assertSucceeds(updateDoc(studentDoc(context), { name: 'Nitin P' }));
+  });
+
+  test('stops another student editing it', async () => {
+    await seed();
+    const context = testEnv.authenticatedContext('someone-else', vitToken);
+    await assertFails(
+      updateDoc(studentDoc(context), {
+        neoId: 'STOLEN01',
+        neoIdEditedAt: new Date(),
+      }),
+    );
+  });
+});

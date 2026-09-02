@@ -9,6 +9,7 @@ class Student {
     required this.name,
     required this.neoId,
     required this.regNo,
+    this.neoIdEditedAt,
     this.createdAt,
     this.fcmTokens = const <String>[],
     this.gmailSync = const GmailSync(),
@@ -19,7 +20,10 @@ class Student {
   final String name;
   final String neoId;
   final String regNo;
+  final DateTime? neoIdEditedAt;
   final DateTime? createdAt;
+
+  bool get canEditNeoId => neoIdEditedAt == null;
   final List<String> fcmTokens;
   final GmailSync gmailSync;
 
@@ -31,6 +35,7 @@ class Student {
       name: data['name'] as String? ?? '',
       neoId: data['neoId'] as String? ?? '',
       regNo: data['regNo'] as String? ?? '',
+      neoIdEditedAt: (data['neoIdEditedAt'] as Timestamp?)?.toDate(),
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
       fcmTokens:
           (data['fcmTokens'] as List<dynamic>?)

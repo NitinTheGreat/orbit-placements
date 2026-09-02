@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/session/session_controller.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/widgets/pressable.dart';
 import '../../companies/presentation/company_list_screen.dart';
 import '../../companies/presentation/drive_filter.dart';
 import '../../profile/presentation/profile_screen.dart';
 import 'home_state.dart';
+import 'widget_refresher.dart';
 
 class HomeDestination {
   const HomeDestination({
@@ -65,12 +67,15 @@ class HomeShell extends StatelessWidget {
       valueListenable: homeTabIndex,
       builder: (context, index, _) {
         return Scaffold(
-          body: IndexedStack(
-            index: index,
-            children: [
-              for (final destination in homeDestinations)
-                destination.builder(context),
-            ],
+          body: WidgetRefresher(
+            studentId: SessionScope.of(context).user?.uid,
+            child: IndexedStack(
+              index: index,
+              children: [
+                for (final destination in homeDestinations)
+                  destination.builder(context),
+              ],
+            ),
           ),
           bottomNavigationBar: _HomeBar(
             index: index,
