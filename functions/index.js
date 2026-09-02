@@ -30,23 +30,43 @@ function assertVitStudent(request) {
   return { uid: auth.uid, email };
 }
 
-async function exchangeCode(code) {
+function describeTokenError(error) {
+  return (
+    (error.response && error.response.data && error.response.data.error_description) ||
+    (error.response && error.response.data && error.response.data.error) ||
+    error.message
+  );
+}
+
+async function exchangeCode(code, redirectUri) {
   const oauth2Client = new google.auth.OAuth2(
     GMAIL_OAUTH_CLIENT_ID.value(),
     GMAIL_OAUTH_CLIENT_SECRET.value(),
-    ''
+    redirectUri || ''
   );
 
+  const candidates = redirectUri ? [redirectUri, 'postmessage'] : [''];
+
   let tokens;
-  try {
-    ({ tokens } = await oauth2Client.getToken({ code, redirect_uri: '' }));
-  } catch (error) {
-    const detail =
-      (error.response && error.response.data && error.response.data.error_description) ||
-      error.message;
+  let lastError;
+  for (const candidate of candidates) {
+    try {
+      ({ tokens } = await oauth2Client.getToken({ code, redirect_uri: candidate }));
+      lastError = undefined;
+      break;
+    } catch (error) {
+      lastError = error;
+      const detail = String(describeTokenError(error) || '');
+      if (!detail.includes('redirect_uri_mismatch') && !detail.includes('Bad Request')) {
+        break;
+      }
+    }
+  }
+
+  if (lastError) {
     throw new HttpsError(
       'invalid-argument',
-      `Google rejected the authorization code: ${detail}`
+      `Google rejected the authorization code: ${describeTokenError(lastError)}`
     );
   }
 
@@ -92,6 +112,11 @@ exports.connectGmail = onCall(
       throw new HttpsError('invalid-argument', 'Missing authorization code.');
     }
 
+    const redirectUri = request.data && request.data.redirectUri;
+    if (redirectUri !== undefined && typeof redirectUri !== 'string') {
+      throw new HttpsError('invalid-argument', 'redirectUri must be a string.');
+    }
+
     const db = admin.firestore();
     const studentRef = db.collection(STUDENTS_COLLECTION).doc(uid);
 
@@ -103,7 +128,7 @@ exports.connectGmail = onCall(
       );
     }
 
-    const { oauth2Client, tokens } = await exchangeCode(code);
+    const { oauth2Client, tokens } = await exchangeCode(code, redirectUri);
 
     try {
       const watch = await registerWatch(oauth2Client);

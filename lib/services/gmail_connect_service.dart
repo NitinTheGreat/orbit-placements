@@ -1,7 +1,14 @@
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../core/constants/app_config.dart';
+import '../core/constants/app_constants.dart';
 import 'auth_service.dart';
+import 'gmail_web_auth_stub.dart'
+    if (dart.library.js_interop) 'gmail_web_auth_web.dart'
+    as web_auth;
 
 class GmailScopes {
   static const String readonly =
@@ -37,6 +44,11 @@ class GmailConnectService {
   final AuthService _authService;
 
   Future<void> connect() async {
+    if (kIsWeb) {
+      await _connectOnWeb();
+      return;
+    }
+
     await _authService.ensureInitialized();
 
     final String serverAuthCode;
@@ -58,9 +70,35 @@ class GmailConnectService {
       );
     }
 
+    await _exchange(code: serverAuthCode);
+  }
+
+  Future<void> _connectOnWeb() async {
+    final String code;
+    try {
+      code = await web_auth.requestServerAuthCode(
+        clientId: AppConfig.googleServerClientId,
+        scopes: GmailScopes.required,
+        loginHint: FirebaseAuth.instance.currentUser?.email,
+        hostedDomain: AppConstants.allowedEmailDomain,
+      );
+    } on web_auth.GmailWebAuthDeclined {
+      throw const GmailConnectDeclined();
+    } on web_auth.GmailWebAuthFailed catch (error) {
+      throw GmailConnectException(error.message);
+    }
+
+    await _exchange(code: code, redirectUri: web_auth.currentOrigin());
+  }
+
+  Future<void> _exchange({required String code, String? redirectUri}) async {
     try {
       await _functions.httpsCallable('connectGmail').call<Map<String, dynamic>>(
-        <String, dynamic>{'code': serverAuthCode},
+        <String, dynamic>{
+          'code': code,
+          if (redirectUri != null && redirectUri.isNotEmpty)
+            'redirectUri': redirectUri,
+        },
       );
     } on FirebaseFunctionsException catch (error) {
       throw GmailConnectException(
