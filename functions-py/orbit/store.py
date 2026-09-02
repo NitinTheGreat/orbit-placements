@@ -48,6 +48,15 @@ def status_doc_id(student_id: str, company_id: str) -> str:
     return f"{student_id}_{company_id}"
 
 
+ENDED_RESULTS = ("rejected", "not_listed")
+
+
+def highest_order_round(rounds: list[dict[str, Any]]) -> dict[str, Any] | None:
+    if not rounds:
+        return None
+    return max(rounds, key=lambda r: r.get("order", 0))
+
+
 def resolve_current_round_id(
     history: list[dict[str, Any]], rounds: list[dict[str, Any]]
 ) -> str | None:
@@ -55,7 +64,7 @@ def resolve_current_round_id(
     best_id: str | None = None
     best_order: int | None = None
     for entry in history:
-        if entry.get("result") == "rejected":
+        if entry.get("result") in ENDED_RESULTS:
             continue
         round_id = entry.get("roundId")
         if round_id not in order_by_id:
@@ -72,10 +81,14 @@ def resolve_overall_status(
 ) -> str:
     if any(entry.get("result") == "rejected" for entry in history):
         return "rejected"
-    if rounds:
-        final = max(rounds, key=lambda r: r.get("order", 0))
+    final = highest_order_round(rounds)
+    if final is not None:
         for entry in history:
-            if entry.get("roundId") == final["id"] and entry.get("result") == "cleared":
+            if entry.get("roundId") != final["id"]:
+                continue
+            if entry.get("result") == "not_listed":
+                return "rejected"
+            if entry.get("result") == "cleared":
                 return "selected"
     return "active"
 

@@ -6,6 +6,7 @@ enum RoundResult {
   invited('invited', 'Invited'),
   cleared('cleared', 'Cleared'),
   rejected('rejected', 'Not selected'),
+  notListed('not_listed', 'Not shortlisted'),
   pending('pending', 'Pending');
 
   const RoundResult(this.wireName, this.label);

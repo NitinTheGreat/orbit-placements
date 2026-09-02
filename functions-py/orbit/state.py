@@ -23,6 +23,7 @@ class IngestionState(TypedDict, total=False):
     matched: bool
     match_source: str | None
     opted_in: bool | None
+    not_listed: bool
     halted_at: str | None
     halt_reason: str | None
 

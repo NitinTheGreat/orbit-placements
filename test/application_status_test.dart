@@ -645,4 +645,60 @@ void main() {
       );
     });
   });
+
+  group('not shortlisted', () {
+    test('a roster miss reads as Not shortlisted, not Not selected', () {
+      expect(
+        outcomeTag(
+          overallStatus: OverallStatus.rejected,
+          companyStatus: CompanyStatus.inProgress,
+          roundHistory: const [
+            RoundHistoryEntry(roundId: 'oa', result: RoundResult.cleared),
+            RoundHistoryEntry(
+              roundId: 'final',
+              result: RoundResult.notListed,
+            ),
+          ],
+        ),
+        DriveOutcomeTag.notShortlisted,
+      );
+    });
+
+    test('an explicit rejection still reads as Not selected', () {
+      expect(
+        outcomeTag(
+          overallStatus: OverallStatus.rejected,
+          companyStatus: CompanyStatus.inProgress,
+          roundHistory: const [
+            RoundHistoryEntry(roundId: 'oa', result: RoundResult.rejected),
+          ],
+        ),
+        DriveOutcomeTag.rejected,
+      );
+    });
+
+    test('an offer outranks a roster miss on an earlier round', () {
+      expect(
+        outcomeTag(
+          overallStatus: OverallStatus.selected,
+          companyStatus: CompanyStatus.resultsDeclared,
+          roundHistory: const [
+            RoundHistoryEntry(roundId: 'oa', result: RoundResult.notListed),
+          ],
+        ),
+        DriveOutcomeTag.selected,
+      );
+    });
+
+    test('the wire value round-trips distinctly from rejected', () {
+      expect(RoundResult.fromWire('not_listed'), RoundResult.notListed);
+      expect(RoundResult.notListed.wireName, 'not_listed');
+      expect(RoundResult.notListed.label, 'Not shortlisted');
+      expect(RoundResult.fromWire('rejected'), RoundResult.rejected);
+    });
+
+    test('an unknown result still falls back to pending', () {
+      expect(RoundResult.fromWire('something_new'), RoundResult.pending);
+    });
+  });
 }

@@ -25,6 +25,11 @@ class StagePill extends StatelessWidget {
         colors.urgentWash,
         colors.urgentInk,
       ),
+      DriveOutcomeTag.notShortlisted => (
+        'Not shortlisted',
+        colors.urgentWash,
+        colors.urgentInk,
+      ),
       DriveOutcomeTag.driveClosed => (
         application.stage,
         colors.surfaceSunken,

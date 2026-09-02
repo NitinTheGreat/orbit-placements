@@ -326,7 +326,7 @@ class _RoundRow extends StatelessWidget {
         colors.successInk,
         Icons.check,
       ),
-      RoundResult.rejected => (
+      RoundResult.rejected || RoundResult.notListed => (
         colors.urgentInk,
         colors.urgentWash,
         colors.urgentInk,

@@ -21,6 +21,13 @@ SYSTEM_PROMPT = (
     "'company_site' for a registration page on the company's own site, and "
     "'other' for anything else. Requirements that describe separate actions "
     "stay separate items, even when both happen on the same portal. "
+    "For roster_type, leave it null unless the email carries a list of "
+    "students for a round. When it does, use 'complete_final' only when the "
+    "email's own language frames that list as the definitive and entire set "
+    "for the round, such as 'final shortlist', 'the following students only', "
+    "or 'no further additions'. Wording like 'additional shortlist', "
+    "'first list', 'more names to follow', or a list with no framing at all "
+    "is 'partial_or_unclear'. When in any doubt, choose 'partial_or_unclear'. "
     "For stipend_period, read the mail's own wording: 'per month', '/month' "
     "or 'pm' mean monthly; a lump sum or wording like 'total' or "
     "'CTC inclusive' means total; anything genuinely unclear is unspecified."
@@ -40,6 +47,15 @@ class RoundInfo(BaseModel):
     result: Literal["invited", "cleared", "rejected", "pending"] | None = Field(
         default=None,
         description="Outcome this email conveys for the students it names.",
+    )
+    roster_type: Literal["complete_final", "partial_or_unclear"] | None = Field(
+        default=None,
+        description=(
+            "Set only when the email carries a list of students for this "
+            "round. 'complete_final' when the email's own words frame the "
+            "list as the definitive and entire set for the round. "
+            "'partial_or_unclear' for every other list."
+        ),
     )
 
 

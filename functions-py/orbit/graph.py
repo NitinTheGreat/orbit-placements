@@ -28,6 +28,7 @@ COMPANY_WRITE = "company_write"
 MATCH_STUDENT = "match_student"
 CHECK_OPT_IN = "check_opt_in"
 UPDATE_STATUS = "update_student_status"
+NOT_LISTED_CHECK = "not_listed_check"
 
 logger = logging.getLogger("orbit.graph")
 
@@ -208,16 +209,76 @@ def make_match_student(deps: Deps):
             if find_identifier(text, identifiers):
                 return {**state, "matched": True, "match_source": "attachment"}
 
-        return {
-            **halt(state, MATCH_STUDENT, "student_not_named"),
-            "matched": False,
-        }
+        return {**state, "matched": False}
 
     return match_student
 
 
 def route_match(state: IngestionState) -> str:
-    return CHECK_OPT_IN if state.get("matched") else END
+    return CHECK_OPT_IN if state.get("matched") else NOT_LISTED_CHECK
+
+
+def make_not_listed_check(deps: Deps):
+    def not_listed_check(state: IngestionState) -> IngestionState:
+        extraction = state.get("extraction") or {}
+        round_info = extraction.get("round") or {}
+        roster_type = round_info.get("roster_type")
+        if roster_type is None:
+            return halt(state, NOT_LISTED_CHECK, "student_not_named")
+        if roster_type != "complete_final":
+            return halt(state, NOT_LISTED_CHECK, "roster_not_final")
+
+        round_id = state.get("round_id")
+        company_id = state.get("company_id")
+        if not round_id or not company_id:
+            return halt(state, NOT_LISTED_CHECK, "no_round_for_roster")
+
+        student_id = state["student_id"]
+        existing = deps.store.get_status(student_id, company_id)
+        if not existing:
+            return halt(state, NOT_LISTED_CHECK, "no_prior_engagement")
+
+        history = list(existing.get("roundHistory") or [])
+        if not history:
+            return halt(state, NOT_LISTED_CHECK, "no_prior_engagement")
+
+        if existing.get("optedIn") is False:
+            return halt(state, NOT_LISTED_CHECK, "opted_out")
+
+        for entry in history:
+            if entry.get("roundId") == round_id and entry.get("result") == "cleared":
+                return halt(state, NOT_LISTED_CHECK, "already_cleared")
+
+        now = deps.now()
+        company = deps.store.get_company(company_id) or {}
+        rounds = company.get("rounds", [])
+        history = merge_round_history(
+            history, round_id, "not_listed", state["message_id"], now
+        )
+
+        deps.store.put_status(
+            student_id,
+            company_id,
+            {
+                "studentId": student_id,
+                "companyId": company_id,
+                "roundHistory": history,
+                "currentRoundId": resolve_current_round_id(history, rounds),
+                "overallStatus": resolve_overall_status(history, rounds),
+                "optedIn": True if existing.get("optedIn") is None else existing["optedIn"],
+                "updatedAt": now,
+                "source": "gmail_ingestion",
+            },
+        )
+        logger.info(
+            "not_listed company=%s round=%s message=%s",
+            company_id,
+            round_id,
+            state.get("message_id"),
+        )
+        return {**state, "not_listed": True}
+
+    return not_listed_check
 
 
 def make_check_opt_in(deps: Deps):
@@ -282,6 +343,7 @@ def build_graph(deps: Deps):
     builder.add_node(MATCH_STUDENT, make_match_student(deps))
     builder.add_node(CHECK_OPT_IN, make_check_opt_in(deps))
     builder.add_node(UPDATE_STATUS, make_update_status(deps))
+    builder.add_node(NOT_LISTED_CHECK, make_not_listed_check(deps))
 
     builder.add_edge(START, CHEAP_FILTER)
     builder.add_conditional_edges(
@@ -293,8 +355,11 @@ def build_graph(deps: Deps):
     builder.add_edge(LLM_EXTRACT, COMPANY_WRITE)
     builder.add_edge(COMPANY_WRITE, MATCH_STUDENT)
     builder.add_conditional_edges(
-        MATCH_STUDENT, route_match, {CHECK_OPT_IN: CHECK_OPT_IN, END: END}
+        MATCH_STUDENT,
+        route_match,
+        {CHECK_OPT_IN: CHECK_OPT_IN, NOT_LISTED_CHECK: NOT_LISTED_CHECK},
     )
+    builder.add_edge(NOT_LISTED_CHECK, END)
     builder.add_conditional_edges(
         CHECK_OPT_IN, route_opt_in, {UPDATE_STATUS: UPDATE_STATUS, END: END}
     )

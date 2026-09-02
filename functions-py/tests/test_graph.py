@@ -186,6 +186,7 @@ def test_no_identifier_match_ends_without_writing_status():
 
     assert result["matched"] is False
     assert result["halt_reason"] == "student_not_named"
+    assert result["halted_at"] == "not_listed_check"
     assert store.put_status_calls == []
     assert store.upsert_calls, "company directory should still be written"
 

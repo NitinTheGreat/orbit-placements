@@ -130,17 +130,24 @@ String applicationSummary({
   return '${progress.done} of ${progress.total} steps done';
 }
 
-enum DriveOutcomeTag { selected, rejected, driveClosed, none }
+enum DriveOutcomeTag { selected, rejected, notShortlisted, driveClosed, none }
+
+bool wasLeftOffARoster(List<RoundHistoryEntry> roundHistory) {
+  return roundHistory.any((entry) => entry.result == RoundResult.notListed);
+}
 
 DriveOutcomeTag outcomeTag({
   required OverallStatus overallStatus,
   required CompanyStatus companyStatus,
+  List<RoundHistoryEntry> roundHistory = const [],
 }) {
   if (overallStatus == OverallStatus.selected) {
     return DriveOutcomeTag.selected;
   }
   if (overallStatus == OverallStatus.rejected) {
-    return DriveOutcomeTag.rejected;
+    return wasLeftOffARoster(roundHistory)
+        ? DriveOutcomeTag.notShortlisted
+        : DriveOutcomeTag.rejected;
   }
   if (companyStatus == CompanyStatus.closed) {
     return DriveOutcomeTag.driveClosed;
@@ -188,8 +195,11 @@ class DriveApplication {
 
   String get stage => companyStage(company, now: now);
 
-  DriveOutcomeTag get tag =>
-      outcomeTag(overallStatus: overallStatus, companyStatus: company.status);
+  DriveOutcomeTag get tag => outcomeTag(
+    overallStatus: overallStatus,
+    companyStatus: company.status,
+    roundHistory: status?.roundHistory ?? const [],
+  );
 
   String get summary => applicationSummary(
     requirements: company.requirements,
