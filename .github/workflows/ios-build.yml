@@ -46,3 +46,17 @@ jobs:
 
       - name: Report app size
         run: du -sh build/ios/iphoneos/Runner.app
+
+      - name: Package an unsigned ipa for sideloading
+        run: |
+          mkdir -p build/sideload/Payload
+          cp -R build/ios/iphoneos/Runner.app build/sideload/Payload/
+          cd build/sideload
+          zip -qry orbit-unsigned.ipa Payload
+          ls -lh orbit-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: orbit-unsigned-ipa
+          path: build/sideload/orbit-unsigned.ipa
+          retention-days: 30
