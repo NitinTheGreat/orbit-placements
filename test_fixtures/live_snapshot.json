@@ -1,0 +1,490 @@
+{
+  "companies": [
+    {
+      "id": "4PRKmqRKa5qfPZqfh47W",
+      "name": "Keyence India",
+      "status": "registration_open",
+      "registrationDeadline": 1788348600000,
+      "eligibleBranches": [
+        "B.Tech Mech,EEE,ECE related branches",
+        "M.Tech Mech,EEE,ECE related branches"
+      ],
+      "requirements": [
+        {
+          "id": "neopat",
+          "required": true
+        },
+        {
+          "id": "company-site-company-registration-link",
+          "required": true
+        },
+        {
+          "id": "other-update-resume-in-campus-interaction-portal",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "5wH8NCcy6JKxOw4JnaKd",
+      "name": "Kinaxis",
+      "status": "registration_open",
+      "registrationDeadline": 1788319800000,
+      "eligibleBranches": [
+        "All B.Tech (CSE/IT) related branches",
+        "All B.Tech ECE related branches (only applicable for Technical Support Associate Role)",
+        "All B.Tech Mechanical related branches (only applicable for Associate Consultant - Solutions Role)"
+      ],
+      "requirements": [
+        {
+          "id": "neopat",
+          "required": true
+        },
+        {
+          "id": "other-update-resume-in-campus-interaction-portal",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "7Y6mnpM55J9SYzERMvFQ",
+      "name": "WinWire",
+      "status": "in_progress",
+      "registrationDeadline": null,
+      "eligibleBranches": [],
+      "requirements": []
+    },
+    {
+      "id": "8uiFt6jYnEKCVLY4H3mF",
+      "name": "Superjoin",
+      "status": "registration_open",
+      "registrationDeadline": 1788345000000,
+      "eligibleBranches": [
+        "B.Tech CSE/IT related branches"
+      ],
+      "requirements": [
+        {
+          "id": "neopat-register-on-neopat",
+          "required": true
+        },
+        {
+          "id": "company-site-company-registration-link",
+          "required": true
+        },
+        {
+          "id": "neopat-update-resume-with-all-relevant-details-and-projects-in-neopat-portal",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "AxqRT8Z62amykgxZs4RM",
+      "name": "ExxonMobil",
+      "status": "in_progress",
+      "registrationDeadline": null,
+      "eligibleBranches": [],
+      "requirements": [
+        {
+          "id": "company-site-apply-register-on-exxonmobil-job-portal-using-personal-email",
+          "required": true
+        },
+        {
+          "id": "neopat",
+          "required": true
+        },
+        {
+          "id": "other-complete-the-oba-test-by-the-evening-of-01-september-2026",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "ByNucEU5vnNJxjeCRLNI",
+      "name": "Chubb",
+      "status": "in_progress",
+      "registrationDeadline": null,
+      "eligibleBranches": [],
+      "requirements": [
+        {
+          "id": "other-appear-for-the-selection-process-in-formal-dress",
+          "required": true
+        },
+        {
+          "id": "other-carry-updated-resumes-photos-college-photo-id-and-relevant-certificates-photo-copy-of-mark-sheets-pg-ug-higher-secondary-10th",
+          "required": true
+        },
+        {
+          "id": "other-keep-webcam-turned-on-till-the-test-gets-over",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "CJXorPE6rwMyJ5Ncv3B9",
+      "name": "Ethos Technologies (Ethos Life)",
+      "status": "registration_open",
+      "registrationDeadline": 1788345000000,
+      "eligibleBranches": [
+        "All B.Tech, M.Tech & Integrated ( CSE, IT)"
+      ],
+      "requirements": [
+        {
+          "id": "neopat",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "CpLPzHeZ8UaV4tbFGbQm",
+      "name": "Sima.ai",
+      "status": "in_progress",
+      "registrationDeadline": null,
+      "eligibleBranches": [],
+      "requirements": []
+    },
+    {
+      "id": "G7SEF5Sz0WZod0QkeKzb",
+      "name": "ResMed Technology Pvt Ltd",
+      "status": "results_declared",
+      "registrationDeadline": null,
+      "eligibleBranches": [],
+      "requirements": []
+    },
+    {
+      "id": "GFfrJjSt8ZOK8QX1jq1S",
+      "name": "Colgate",
+      "status": "in_progress",
+      "registrationDeadline": null,
+      "eligibleBranches": [],
+      "requirements": [
+        {
+          "id": "google-form-form-for-students-unable-to-submit-the-test",
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "GGCPbaFp73TAXayLx1BO",
+      "name": "TresVista Financial Services",
+      "status": "in_progress",
+      "registrationDeadline": 1788611400000,
+      "eligibleBranches": [
+        "B.Tech CSE & IT Related branches"
+      ],
+      "requirements": [
+        {
+          "id": "neopat-register-in-the-neo-pat-portal",
+          "required": true
+        },
+        {
+          "id": "other-update-your-resume-in-campus-interaction-portal",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "LNvQvtVOoQyGO0AUj8DM",
+      "name": "Presidio",
+      "status": "in_progress",
+      "registrationDeadline": null,
+      "eligibleBranches": [],
+      "requirements": []
+    },
+    {
+      "id": "Pl0FJiGtb2Nk94ZOF3Mq",
+      "name": "Accenture",
+      "status": "in_progress",
+      "registrationDeadline": 1788409800000,
+      "eligibleBranches": [],
+      "requirements": [
+        {
+          "id": "other-complete-accenture-registration-via-link-received-on-registered-email-id",
+          "required": true
+        },
+        {
+          "id": "other-give-trainer-preference-in-vtop",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "QQMpHl2IsQZi4J7zIrAh",
+      "name": "MUFG",
+      "status": "results_declared",
+      "registrationDeadline": null,
+      "eligibleBranches": [],
+      "requirements": []
+    },
+    {
+      "id": "Y2n8IBirbUSd4fG42g9S",
+      "name": "Spritle Software",
+      "status": "in_progress",
+      "registrationDeadline": null,
+      "eligibleBranches": [],
+      "requirements": []
+    },
+    {
+      "id": "YmhiK8zt29zXJwTrQev8",
+      "name": "WinWire (Part of NTT DATA)",
+      "status": "registration_open",
+      "registrationDeadline": 1788256800000,
+      "eligibleBranches": [
+        "B. Tech. CS/IT Related Branches",
+        "CSE",
+        "IT",
+        "AIML",
+        "DS"
+      ],
+      "requirements": [
+        {
+          "id": "google-form-academic-gap-details-registration-form",
+          "required": true
+        },
+        {
+          "id": "neopat",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "aapIflKzUyEsYgmuDgmQ",
+      "name": "Hitwicket",
+      "status": "results_declared",
+      "registrationDeadline": null,
+      "eligibleBranches": [],
+      "requirements": []
+    },
+    {
+      "id": "dInm1H6idpL13CnOmZiR",
+      "name": "JPMorganChase",
+      "status": "results_declared",
+      "registrationDeadline": null,
+      "eligibleBranches": [],
+      "requirements": []
+    },
+    {
+      "id": "db7EU5OCfnzI519KGDlC",
+      "name": "Tredence",
+      "status": "in_progress",
+      "registrationDeadline": null,
+      "eligibleBranches": [],
+      "requirements": [
+        {
+          "id": "other-report-immediately-to-cdc-office-717",
+          "required": true
+        },
+        {
+          "id": "other-chennai-campus-students-should-travel-to-vellore-campus-for-the-interview-on-2nd-september-2026",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "eoMOWXVUYOFl0bUhqayH",
+      "name": "Paytm",
+      "status": "registration_open",
+      "registrationDeadline": null,
+      "eligibleBranches": [],
+      "requirements": []
+    },
+    {
+      "id": "gxsQvEQniiqRHdhZfekL",
+      "name": "EY GDS",
+      "status": "in_progress",
+      "registrationDeadline": null,
+      "eligibleBranches": [],
+      "requirements": []
+    },
+    {
+      "id": "hVQX48wn5yuUvajzfYjt",
+      "name": "Urban Company",
+      "status": "in_progress",
+      "registrationDeadline": 1788348600000,
+      "eligibleBranches": [
+        "All B.Techs (except CS/IT Related)"
+      ],
+      "requirements": [
+        {
+          "id": "neopat",
+          "required": true
+        },
+        {
+          "id": "google-form-application-form",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "lIXUq0Wpww0DjcxqqrAa",
+      "name": "Futures First",
+      "status": "in_progress",
+      "registrationDeadline": null,
+      "eligibleBranches": [],
+      "requirements": [
+        {
+          "id": "neopat",
+          "required": true
+        },
+        {
+          "id": "other-check-personal-official-email-ids-for-the-test-link",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "luJcVmubPMg4zb7a9fDE",
+      "name": "Natwest",
+      "status": "in_progress",
+      "registrationDeadline": null,
+      "eligibleBranches": [],
+      "requirements": []
+    },
+    {
+      "id": "nLmXxkqicB11JrCA4ekS",
+      "name": "Colgate Palmolive",
+      "status": "in_progress",
+      "registrationDeadline": null,
+      "eligibleBranches": [],
+      "requirements": [
+        {
+          "id": "other-pre-placement-talk-link",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "qcaE99eXKieFjR3ft0O6",
+      "name": "Goldmansachs",
+      "status": "registration_open",
+      "registrationDeadline": 1788402600000,
+      "eligibleBranches": [
+        "All B.Tech Branches"
+      ],
+      "requirements": [
+        {
+          "id": "neopat-register-in-the-neo-pat",
+          "required": true
+        },
+        {
+          "id": "other-update-resume-with-all-relevant-details-and-projects-done-in-campus-interaction-portal",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "roSbwhuTjSwZNIvRyoJa",
+      "name": "Cisco",
+      "status": "registration_open",
+      "registrationDeadline": 1788424200000,
+      "eligibleBranches": [
+        "B. Tech ( ECE / EEE ) related branches only",
+        "ECE",
+        "EEE",
+        "Instrumentation",
+        "Electronics & Telecommunication"
+      ],
+      "requirements": [
+        {
+          "id": "neopat-register-on-neopat",
+          "required": true
+        },
+        {
+          "id": "other-fill-company-registration-form-under-registration-form-drive-description-section-on-neopat",
+          "required": true
+        },
+        {
+          "id": "other-update-resume-with-relevant-details-and-projects-in-campus-interaction-portal",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "vZ3zzzxuSmMw7mKFyOvq",
+      "name": "Unthinkable",
+      "status": "in_progress",
+      "registrationDeadline": 1788337800000,
+      "eligibleBranches": [],
+      "requirements": [
+        {
+          "id": "google-form-register-in-the-below-link-on-or-before-2nd-september-2026-9-00-am",
+          "required": true
+        }
+      ]
+    },
+    {
+      "id": "yArscwOvYQjWd9I5kLkx",
+      "name": "Face Prep",
+      "status": "registration_open",
+      "registrationDeadline": 1788409800000,
+      "eligibleBranches": [
+        "M. Tech ( CSE / IT ) related branches only"
+      ],
+      "requirements": [
+        {
+          "id": "neopat-register-in-neo-pat",
+          "required": true
+        },
+        {
+          "id": "other-update-resume-with-all-relevant-details-and-projects-done-in-campus-interaction-portal",
+          "required": true
+        }
+      ]
+    }
+  ],
+  "statuses": [
+    {
+      "companyId": "yArscwOvYQjWd9I5kLkx",
+      "optedIn": null,
+      "overallStatus": null,
+      "completedRequirementIds": [
+        "neopat-register-in-neo-pat"
+      ],
+      "roundHistory": []
+    },
+    {
+      "companyId": "4PRKmqRKa5qfPZqfh47W",
+      "optedIn": false,
+      "overallStatus": null,
+      "completedRequirementIds": [
+        "neopat-neo-pat-registration"
+      ],
+      "roundHistory": []
+    },
+    {
+      "companyId": "AxqRT8Z62amykgxZs4RM",
+      "optedIn": true,
+      "overallStatus": null,
+      "completedRequirementIds": [],
+      "roundHistory": []
+    },
+    {
+      "companyId": "Pl0FJiGtb2Nk94ZOF3Mq",
+      "optedIn": true,
+      "overallStatus": "active",
+      "completedRequirementIds": [],
+      "roundHistory": [
+        {
+          "roundId": "training",
+          "result": "invited"
+        }
+      ]
+    },
+    {
+      "companyId": "roSbwhuTjSwZNIvRyoJa",
+      "optedIn": false,
+      "overallStatus": null,
+      "completedRequirementIds": [],
+      "roundHistory": []
+    },
+    {
+      "companyId": "yArscwOvYQjWd9I5kLkx",
+      "optedIn": null,
+      "overallStatus": null,
+      "completedRequirementIds": [
+        "neopat-register-in-neo-pat",
+        "other-update-resume-with-all-relevant-details-and-projects-done-in-campus-interaction-portal"
+      ],
+      "roundHistory": []
+    }
+  ],
+  "regNo": "23BCT0098"
+}

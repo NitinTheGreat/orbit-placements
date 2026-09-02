@@ -408,10 +408,99 @@ quality and the "say you do not know" behaviour are unexercised.
 
 ## Part F — re-verify sort order
 
-**Status:** not started
+**Status:** done — the five-band order holds against all 29 live drives
+
+I snapshotted your live Firestore into
+`test_fixtures/live_snapshot.json` (29 companies, 6 status documents, your
+real regNo) and ran the ordering over it. `test/live_ordering_test.dart`
+asserts the band index never goes backwards, deadlines rise inside every
+non-concluded band, every drive lands in exactly one band, the order is
+stable across runs, no concluded drive outranks a live one, and a drive the
+student deliberately joined is never sunk.
+
+The actual result:
+
+    actionNeeded    Unthinkable                      02 Sep 14:00
+    actionNeeded    Ethos Technologies (Ethos Life)  02 Sep 16:00
+    actionNeeded    Superjoin                        02 Sep 16:00
+    actionNeeded    Goldmansachs                     03 Sep 08:00
+    actionNeeded    Accenture                        03 Sep 10:00
+    actionNeeded    TresVista Financial Services     05 Sep 18:00
+    openNoAction    WinWire (Part of NTT DATA)       01 Sep 15:30
+    openNoAction    Kinaxis                          02 Sep 09:00
+    openNoAction    Face Prep                        03 Sep 10:00
+    openNoAction    Paytm                            no deadline
+    ongoing         Chubb ... WinWire                (12 drives)
+    concluded       Hitwicket, JPMorganChase, MUFG, ResMed
+    branchMismatch  Keyence India                    02 Sep 17:00
+    branchMismatch  Urban Company                    02 Sep 17:00
+    branchMismatch  Cisco                            03 Sep 14:00
+
+**The mismatch band is right for the right reasons.** Those three are
+Keyence (Mech/EEE/ECE only), Urban Company (all B.Techs *except* CS/IT), and
+Cisco (ECE/EEE only) — every one genuinely closed to a BCT student, and one
+of them caught through the exclusion clause rather than an inclusion list.
+Nothing else was sunk.
+
+**Two things I noticed in your live data while doing this** — not in scope
+tonight, but you should know:
+
+1. **`WinWire (Part of NTT DATA)` and `WinWire` are two separate company
+   documents**, as are `Colgate` and `Colgate Palmolive`. Ingestion's
+   name-matching created duplicates when a later mail used a shorter name.
+   That is a real data-quality bug worth a pass of its own.
+2. `WinWire (Part of NTT DATA)` sits in *open, no action* with a deadline
+   that has already passed. That is correct under the rules — its status is
+   still `registration_open` but the deadline is behind us, so it is not
+   action-needed — but it reads oddly. It is the same case Part B of last
+   night's brief called "Registration closed" in the stage label.
+
+**Verified:** 7 live-data tests, 298 Dart tests, 250 Python tests, 31 rules
+tests, analyze clean.
 
 ---
 
+## Where everything ended up
+
+| | |
+| --- | --- |
+| PWA | https://orbit-507316.web.app |
+| Functions | all deployed to `orbit-507316`, including the new `askOrbit` |
+| Tests | 298 Dart, 250 Python, 31 Firestore rules — all passing |
+
+Seven commits, each pushed as it finished.
+
 ## Needs your attention
 
-Nothing yet.
+**One thing blocks a real fix**
+
+1. **Add `https://orbit-507316.web.app` to the OAuth client**, as both an
+   Authorized JavaScript origin and an Authorized redirect URI. Until then,
+   Gmail connect on the PWA cannot work for a new user — that is Part A's
+   whole point, the code is written and deployed, and this console step is
+   the only thing left. Exact steps are in Part A. Ask me afterwards and I
+   will re-run the probe to confirm it took.
+
+**One live behaviour change to be aware of**
+
+2. **Auto-tracking is now suppressed on a confident branch mismatch.** A
+   `23BCT0098` student named in a Keyence mail will no longer be
+   auto-tracked into it. Ambiguous and unknown branches are unaffected.
+
+**Worth a future pass**
+
+3. **Duplicate company documents** in production: `WinWire` /
+   `WinWire (Part of NTT DATA)`, and `Colgate` / `Colgate Palmolive`.
+4. Under your confirmed prefix rules, `BAI`, `BBT`, `BPS` and `BDS` are
+   **unknown** and are never flagged or suppressed. That is the safe
+   direction, but if those codes exist at VIT you may want rules for them.
+
+**Still unverified by eye**
+
+5. Nothing in this session has been seen on a device: the assistant panel,
+   the widget nudge sheet, the optimistic checkboxes, and the background
+   widget refresh are all analyzer, unit, emulator and live-data evidence
+   only. The background FCM refresh in particular can only really be proven
+   by installing a build and triggering a notification.
+6. No real question has been put to the live assistant model. Answer quality
+   and the "say you do not know" behaviour are untested against Gemini.
