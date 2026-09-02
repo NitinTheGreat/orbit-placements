@@ -7,6 +7,7 @@ import 'core/routing/app_router.dart';
 import 'core/session/session_controller.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_tokens.dart';
+import 'core/widgets/launch_curtain.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -54,7 +55,7 @@ class _OrbitAppState extends State<OrbitApp> {
           final isDark = Theme.of(context).brightness == Brightness.dark;
           return OrbitTheme(
             colors: isDark ? OrbitColors.dark : OrbitColors.light,
-            child: child ?? const SizedBox.shrink(),
+            child: LaunchCurtain(child: child ?? const SizedBox.shrink()),
           );
         },
       ),

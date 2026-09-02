@@ -68,3 +68,50 @@ String emptyStateHeadline(DriveFilter filter) {
     DriveFilter.all => 'No drives yet',
   };
 }
+
+enum DriveLock { openNow, shortlisted }
+
+bool matchesLock({
+  required DriveLock lock,
+  required Company company,
+  required StudentCompanyStatus? status,
+  DateTime? now,
+}) {
+  final application = DriveApplication(
+    company: company,
+    status: status,
+    now: now,
+  );
+
+  return switch (lock) {
+    DriveLock.openNow => company.status == CompanyStatus.registrationOpen,
+    DriveLock.shortlisted =>
+      application.isInProgress ||
+          application.overallStatus == OverallStatus.selected,
+  };
+}
+
+List<Company> applyLock({
+  required DriveLock lock,
+  required List<Company> companies,
+  required Map<String, StudentCompanyStatus> statusesByCompanyId,
+  DateTime? now,
+}) {
+  return companies
+      .where(
+        (company) => matchesLock(
+          lock: lock,
+          company: company,
+          status: statusesByCompanyId[company.id],
+          now: now,
+        ),
+      )
+      .toList(growable: false);
+}
+
+String lockEmptyHeadline(DriveLock lock) {
+  return switch (lock) {
+    DriveLock.openNow => 'Nothing open right now.',
+    DriveLock.shortlisted => 'Nothing yet — keep at it.',
+  };
+}

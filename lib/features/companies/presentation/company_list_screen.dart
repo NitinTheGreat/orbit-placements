@@ -7,20 +7,27 @@ import '../../../core/session/session_controller.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/widgets/orbit_notice.dart';
 import '../../../core/widgets/pressable.dart';
+import '../../../models/branch_eligibility.dart';
 import '../../../models/gmail_sync.dart';
 import '../../../models/student_company_status.dart';
 import '../../../services/firestore_service.dart';
 import '../../../services/sync_service.dart';
+import '../../home/presentation/home_state.dart';
 import 'company_format.dart';
 import 'company_page_controller.dart';
 import 'drive_filter.dart';
 import 'drive_list_empty_state.dart';
+import 'drive_ordering.dart';
 import 'widgets/drive_card.dart';
 
 const double _loadMoreThreshold = 400;
 
 class CompanyListScreen extends StatefulWidget {
-  const CompanyListScreen({super.key});
+  const CompanyListScreen({super.key, this.lock, this.title, this.subtitle});
+
+  final DriveLock? lock;
+  final String? title;
+  final String? subtitle;
 
   @override
   State<CompanyListScreen> createState() => _CompanyListScreenState();
@@ -33,7 +40,6 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
   final ScrollController _scrollController = ScrollController();
 
   bool _showAllDespiteOptOut = false;
-  DriveFilter _filter = DriveFilter.all;
 
   @override
   void initState() {
@@ -72,8 +78,9 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
       await _syncService.syncNow();
     } on SyncException catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(error.message)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
       }
     }
     await _controller.refresh();
@@ -94,6 +101,7 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
     final session = SessionScope.of(context);
     final firstName = _firstName(session.student?.name);
     final studentId = session.user?.uid;
+    final locked = widget.lock != null;
 
     return Scaffold(
       body: SafeArea(
@@ -115,29 +123,30 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          firstName == null
-                              ? 'Your drives'
-                              : 'Hello, $firstName',
+                          widget.title ??
+                              (firstName == null
+                                  ? 'Your drives'
+                                  : 'Hello, $firstName'),
                           style: theme.textTheme.headlineMedium,
                         ),
                         const SizedBox(height: 2),
-                        _LastCheckedLine(sync: session.gmailSync),
+                        if (widget.subtitle != null)
+                          Text(
+                            widget.subtitle!,
+                            style: theme.textTheme.bodySmall,
+                          )
+                        else
+                          _LastCheckedLine(sync: session.gmailSync),
                       ],
                     ),
                   ),
-                  if (session.isAdmin)
+                  if (!locked && session.isAdmin)
                     IconButton(
                       tooltip: 'Add a drive',
                       icon: const Icon(Icons.add),
                       color: colors.ink,
                       onPressed: () => context.goNamed(AppRoutes.admin),
                     ),
-                  IconButton(
-                    tooltip: 'Sign out',
-                    icon: const Icon(Icons.logout, size: 20),
-                    color: colors.inkMuted,
-                    onPressed: session.signOut,
-                  ),
                 ],
               ),
             ),
@@ -164,23 +173,43 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
                           for (final status in statuses)
                             status.companyId: status,
                         };
-                        return Column(
-                          children: [
-                            _FilterChips(
-                              selected: _filter,
-                              onSelect: (filter) =>
-                                  setState(() => _filter = filter),
-                            ),
-                            Expanded(
-                              child: _buildBody(
-                                gmailConnected: session.gmailSync.isConnected,
-                                optedOutCount: statuses
-                                    .where((s) => s.isOptedOut)
-                                    .length,
-                                statusesByCompanyId: byCompany,
-                              ),
-                            ),
-                          ],
+                        final branch = branchForRegNo(session.student?.regNo);
+                        final optedOutCount = statuses
+                            .where((status) => status.isOptedOut)
+                            .length;
+
+                        if (locked) {
+                          return _buildBody(
+                            gmailConnected: session.gmailSync.isConnected,
+                            optedOutCount: optedOutCount,
+                            statusesByCompanyId: byCompany,
+                            branch: branch,
+                            filter: DriveFilter.all,
+                          );
+                        }
+
+                        return ValueListenableBuilder<DriveFilter>(
+                          valueListenable: drivesFilter,
+                          builder: (context, filter, _) {
+                            return Column(
+                              children: [
+                                _FilterChips(
+                                  selected: filter,
+                                  onSelect: (next) => drivesFilter.value = next,
+                                ),
+                                Expanded(
+                                  child: _buildBody(
+                                    gmailConnected:
+                                        session.gmailSync.isConnected,
+                                    optedOutCount: optedOutCount,
+                                    statusesByCompanyId: byCompany,
+                                    branch: branch,
+                                    filter: filter,
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         );
                       },
                     ),
@@ -195,6 +224,8 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
     required bool gmailConnected,
     required int optedOutCount,
     required Map<String, StudentCompanyStatus> statusesByCompanyId,
+    required BranchInfo? branch,
+    required DriveFilter filter,
   }) {
     if (_controller.error != null) {
       return RefreshIndicator(
@@ -225,14 +256,26 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
       );
     }
 
+    final lock = widget.lock;
     final loaded = _controller.companies;
-    final companies = applyFilter(
-      filter: _filter,
-      companies: loaded,
+    final matched = lock == null
+        ? applyFilter(
+            filter: filter,
+            companies: loaded,
+            statusesByCompanyId: statusesByCompanyId,
+          )
+        : applyLock(
+            lock: lock,
+            companies: loaded,
+            statusesByCompanyId: statusesByCompanyId,
+          );
+    final companies = orderDrives(
+      companies: matched,
       statusesByCompanyId: statusesByCompanyId,
     );
 
-    if (_filter != DriveFilter.all && companies.isEmpty) {
+    final narrowed = lock != null || filter != DriveFilter.all;
+    if (narrowed && companies.isEmpty) {
       return RefreshIndicator(
         onRefresh: _refresh,
         child: ListView(
@@ -240,13 +283,19 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
           children: [
             const SizedBox(height: 60),
             OrbitEmptyState(
-              icon: switch (_filter) {
-                DriveFilter.actionNeeded => Icons.check_circle_outline,
-                DriveFilter.selected => Icons.emoji_events_outlined,
-                DriveFilter.closed => Icons.lock_outline,
-                _ => Icons.filter_list_off,
+              icon: switch (lock) {
+                DriveLock.openNow => Icons.lock_clock_outlined,
+                DriveLock.shortlisted => Icons.workspace_premium_outlined,
+                null => switch (filter) {
+                  DriveFilter.actionNeeded => Icons.check_circle_outline,
+                  DriveFilter.selected => Icons.emoji_events_outlined,
+                  DriveFilter.closed => Icons.lock_outline,
+                  _ => Icons.filter_list_off,
+                },
               },
-              headline: emptyStateHeadline(_filter),
+              headline: lock == null
+                  ? emptyStateHeadline(filter)
+                  : lockEmptyHeadline(lock),
               guidance: '',
             ),
           ],
@@ -314,6 +363,7 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
           final card = DriveCard(
             company: company,
             status: statusesByCompanyId[company.id],
+            branch: branch,
             onTap: () => context.goNamed(
               AppRoutes.companyDetail,
               pathParameters: {'companyId': company.id},

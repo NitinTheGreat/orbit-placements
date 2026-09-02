@@ -4,6 +4,7 @@ import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/pressable.dart';
 import '../../../../core/widgets/urgency_rail.dart';
 import '../../../../models/application_status.dart';
+import '../../../../models/branch_eligibility.dart';
 import '../../../../models/company.dart';
 import '../../../../models/student_company_status.dart';
 import '../company_format.dart';
@@ -11,10 +12,17 @@ import '../currency_format.dart';
 import 'stage_pill.dart';
 
 class DriveCard extends StatelessWidget {
-  const DriveCard({super.key, required this.company, this.status, this.onTap});
+  const DriveCard({
+    super.key,
+    required this.company,
+    this.status,
+    this.branch,
+    this.onTap,
+  });
 
   final Company company;
   final StudentCompanyStatus? status;
+  final BranchInfo? branch;
   final VoidCallback? onTap;
 
   @override
@@ -22,7 +30,12 @@ class DriveCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = OrbitTheme.of(context);
     final application = DriveApplication(company: company, status: status);
-    final urgency = application.urgency;
+    final relevance = branchRelevance(
+      branch: branch,
+      eligibleBranches: company.eligibleBranches,
+    );
+    final offBranch = relevance == BranchRelevance.notOpen;
+    final urgency = offBranch ? DeadlineUrgency.passed : application.urgency;
 
     return Pressable(
       onTap: onTap,
@@ -51,60 +64,94 @@ class DriveCard extends StatelessWidget {
                 OrbitSpacing.lg,
                 OrbitSpacing.lg,
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Hero(
-                          tag: 'company-name-${company.id}',
-                          child: Material(
-                            type: MaterialType.transparency,
-                            child: Text(
-                              company.name,
-                              style: theme.textTheme.titleLarge,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
+              child: Opacity(
+                opacity: offBranch ? 0.58 : 1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Hero(
+                      tag: 'company-name-${company.id}',
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: Text(
+                          company.name,
+                          style: theme.textTheme.titleLarge,
+                          softWrap: true,
                         ),
                       ),
-                      const SizedBox(width: OrbitSpacing.sm),
-                      StagePill(application: application, dense: true),
+                    ),
+                    if (company.category.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(company.category, style: theme.textTheme.bodySmall),
                     ],
-                  ),
-                  if (company.category.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(company.category, style: theme.textTheme.bodySmall),
-                  ],
-                  const SizedBox(height: OrbitSpacing.md),
-                  _DeadlineLine(
-                    deadline: company.registrationDeadline,
-                    urgency: urgency,
-                  ),
-                  if (company.ctc != null && company.ctc!.isNotEmpty) ...[
-                    const SizedBox(height: OrbitSpacing.sm),
-                    Row(
+                    const SizedBox(height: OrbitSpacing.md),
+                    Wrap(
+                      spacing: OrbitSpacing.sm,
+                      runSpacing: OrbitSpacing.xs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        Icon(
-                          Icons.payments_outlined,
-                          size: 15,
-                          color: colors.inkFaint,
-                        ),
-                        const SizedBox(width: OrbitSpacing.sm),
-                        Text(
-                          formatAmounts(company.ctc),
-                          style: theme.textTheme.labelMedium,
-                        ),
+                        StagePill(application: application, dense: true),
+                        if (offBranch) const OffBranchTag(),
                       ],
                     ),
+                    const SizedBox(height: OrbitSpacing.md),
+                    _DeadlineLine(
+                      deadline: company.registrationDeadline,
+                      urgency: urgency,
+                    ),
+                    if (company.ctc != null && company.ctc!.isNotEmpty) ...[
+                      const SizedBox(height: OrbitSpacing.sm),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.payments_outlined,
+                            size: 15,
+                            color: colors.inkFaint,
+                          ),
+                          const SizedBox(width: OrbitSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              formatAmounts(company.ctc),
+                              style: theme.textTheme.labelMedium,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class OffBranchTag extends StatelessWidget {
+  const OffBranchTag({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = OrbitTheme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: OrbitSpacing.sm,
+        vertical: 3,
+      ),
+      decoration: BoxDecoration(
+        color: colors.surfaceSunken,
+        borderRadius: BorderRadius.circular(OrbitRadius.pill),
+        border: Border.all(color: colors.border),
+      ),
+      child: Text(
+        'Not open to your branch',
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: colors.inkMuted,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
@@ -132,7 +179,7 @@ class _DeadlineLine extends StatelessWidget {
           color: tint,
         ),
         const SizedBox(width: OrbitSpacing.sm),
-        Flexible(
+        Expanded(
           child: Text(
             CompanyFormat.deadlineLabel(deadline),
             style: theme.textTheme.labelMedium?.copyWith(
