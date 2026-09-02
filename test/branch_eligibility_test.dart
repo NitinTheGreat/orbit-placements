@@ -1,191 +1,138 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit/models/branch_eligibility.dart';
 
+const Map<String, BranchFamily> _familyByWireName = <String, BranchFamily>{
+  'computer_science': BranchFamily.computerScience,
+  'information_technology': BranchFamily.informationTechnology,
+  'electrical': BranchFamily.electrical,
+  'mechanical': BranchFamily.mechanical,
+  'postgraduate': BranchFamily.postgraduate,
+};
+
+const Map<String, BranchRelevance> _relevanceByWireName =
+    <String, BranchRelevance>{
+      'eligible': BranchRelevance.eligible,
+      'not_open': BranchRelevance.notOpen,
+      'unknown': BranchRelevance.unknown,
+    };
+
+Map<String, dynamic> _loadCases() {
+  final file = File('test_fixtures/branch_cases.json');
+  if (!file.existsSync()) {
+    throw StateError('the shared parity table is missing at ${file.path}');
+  }
+  return jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
+}
+
 void main() {
-  group('branch code from regNo', () {
-    test('reads the three letters after the two year digits', () {
-      expect(branchCodeFromRegNo('23BCT0098'), 'BCT');
-      expect(branchCodeFromRegNo('22BCE1234'), 'BCE');
-      expect(branchCodeFromRegNo('21BME0001'), 'BME');
-    });
+  final cases = _loadCases();
 
-    test('tolerates spacing and lower case', () {
-      expect(branchCodeFromRegNo(' 23bct0098 '), 'BCT');
-      expect(branchCodeFromRegNo('23 BCT 0098'), 'BCT');
-    });
-
-    test('returns null for anything that is not the VIT shape', () {
-      expect(branchCodeFromRegNo(null), isNull);
-      expect(branchCodeFromRegNo(''), isNull);
-      expect(branchCodeFromRegNo('BCT0098'), isNull);
-      expect(branchCodeFromRegNo('23BC0098'), isNull);
-      expect(branchCodeFromRegNo('23BCT098'), isNull);
-      expect(branchCodeFromRegNo('2023BCT0098'), isNull);
-    });
-
-    test('an unmapped but well-formed code resolves to no branch', () {
-      expect(branchCodeFromRegNo('23XYZ0001'), 'XYZ');
-      expect(branchForRegNo('23XYZ0001'), isNull);
-    });
-  });
-
-  group('family detection', () {
-    test('reads the real eligibility strings from production', () {
-      expect(
-        familiesMentionedIn('B.Tech Mech,EEE,ECE related branches'),
-        {
-          BranchFamily.mechanical,
-          BranchFamily.electricalElectronics,
-          BranchFamily.electronicsCommunication,
-        },
-      );
-      expect(familiesMentionedIn('B.Tech CSE/IT related branches'), {
-        BranchFamily.computerScience,
-        BranchFamily.informationTechnology,
+  group('shared parity table, codes', () {
+    for (final entry in cases['codes'] as List<dynamic>) {
+      final row = entry as Map<String, dynamic>;
+      final code = row['code'] as String?;
+      final expected = row['family'] as String?;
+      test('${code ?? 'null'} maps to ${expected ?? 'no family'}', () {
+        expect(
+          branchFamilyForCode(code),
+          expected == null ? isNull : _familyByWireName[expected],
+        );
       });
-      expect(
-        familiesMentionedIn('All B.Tech, M.Tech & Integrated ( CSE, IT)'),
-        {BranchFamily.computerScience, BranchFamily.informationTechnology},
-      );
-      expect(
-        familiesMentionedIn('B. Tech ( ECE / EEE ) related branches only'),
-        {
-          BranchFamily.electronicsCommunication,
-          BranchFamily.electricalElectronics,
-        },
-      );
-    });
-
-    test('does not match a code hiding inside an ordinary word', () {
-      expect(familiesMentionedIn('necessary prerequisites'), isEmpty);
-      expect(familiesMentionedIn('All branches are welcome'), isEmpty);
-    });
+    }
   });
 
-  group('branch relevance', () {
-    const cse = BranchInfo(
-      'BCT',
-      'Computer Science and Engineering',
-      BranchFamily.computerScience,
-    );
-    const mech = BranchInfo(
-      'BME',
-      'Mechanical Engineering',
-      BranchFamily.mechanical,
-    );
+  group('shared parity table, registration numbers', () {
+    for (final entry in cases['regNos'] as List<dynamic>) {
+      final row = entry as Map<String, dynamic>;
+      final regNo = row['regNo'] as String?;
+      final expectedCode = row['code'] as String?;
+      final expectedFamily = row['family'] as String?;
 
-    test('an empty eligibility list is never a mismatch', () {
-      expect(
-        branchRelevance(branch: cse, eligibleBranches: const []),
-        BranchRelevance.unknown,
-      );
-      expect(
-        branchRelevance(branch: cse, eligibleBranches: const ['', '  ']),
-        BranchRelevance.unknown,
-      );
+      test('${regNo ?? 'null'} reads as ${expectedCode ?? 'nothing'}', () {
+        expect(branchCodeFromRegNo(regNo), expectedCode);
+        final branch = branchForRegNo(regNo);
+        if (expectedFamily == null) {
+          expect(branch, isNull);
+        } else {
+          expect(branch, isNotNull);
+          expect(branch!.family, _familyByWireName[expectedFamily]);
+          expect(branch.code, expectedCode);
+        }
+      });
+    }
+  });
+
+  group('shared parity table, relevance', () {
+    for (final entry in cases['relevance'] as List<dynamic>) {
+      final row = entry as Map<String, dynamic>;
+      final why = row['why'] as String;
+      final branches = (row['eligibleBranches'] as List<dynamic>)
+          .map((value) => value as String)
+          .toList();
+      final expectations = row['expect'] as Map<String, dynamic>;
+
+      expectations.forEach((regNo, expected) {
+        test('$why: $regNo is $expected', () {
+          expect(
+            branchRelevanceForRegNo(
+              regNo: regNo,
+              eligibleBranches: branches,
+            ),
+            _relevanceByWireName[expected as String],
+          );
+        });
+      });
+    }
+  });
+
+  group('the prefix rules you confirmed', () {
+    test('any BC code is CS family, whatever the third letter', () {
+      for (final code in ['BCA', 'BCB', 'BCT', 'BCZ']) {
+        expect(branchFamilyForCode(code), BranchFamily.computerScience);
+      }
     });
 
-    test('an unknown branch code is never a mismatch', () {
-      expect(
-        branchRelevance(
-          branch: null,
-          eligibleBranches: const ['B.Tech CSE/IT related branches'],
-        ),
-        BranchRelevance.unknown,
-      );
+    test('BIT is IT and is not swallowed by the B prefix rules', () {
+      expect(branchFamilyForCode('BIT'), BranchFamily.informationTechnology);
     });
 
-    test('text naming no branch at all is never a mismatch', () {
-      expect(
-        branchRelevance(
-          branch: cse,
-          eligibleBranches: const ['All B.Techs', 'No standing arrears'],
-        ),
-        BranchRelevance.unknown,
-      );
+    test('any BE code is electrical', () {
+      for (final code in ['BEA', 'BEC', 'BEE', 'BEZ']) {
+        expect(branchFamilyForCode(code), BranchFamily.electrical);
+      }
     });
 
-    test('Keyence is a confident mismatch for CSE and a match for Mech', () {
-      const keyence = [
-        'B.Tech Mech,EEE,ECE related branches',
-        'M.Tech Mech,EEE,ECE related branches',
-      ];
-      expect(
-        branchRelevance(branch: cse, eligibleBranches: keyence),
-        BranchRelevance.notOpen,
-      );
-      expect(
-        branchRelevance(branch: mech, eligibleBranches: keyence),
-        BranchRelevance.eligible,
-      );
+    test('any BM code is mechanical', () {
+      for (final code in ['BMA', 'BME', 'BMY']) {
+        expect(branchFamilyForCode(code), BranchFamily.mechanical);
+      }
     });
 
-    test('any single entry admitting the student wins over the rest', () {
-      const kinaxis = [
-        'All B.Tech (CSE/IT) related branches',
-        'All B.Tech ECE related branches (only applicable for Technical '
-            'Support Associate Role)',
-        'All B.Tech Mechanical related branches (only applicable for '
-            'Associate Consultant - Solutions Role)',
-      ];
-      expect(
-        branchRelevance(branch: cse, eligibleBranches: kinaxis),
-        BranchRelevance.eligible,
-      );
-      expect(
-        branchRelevance(branch: mech, eligibleBranches: kinaxis),
-        BranchRelevance.eligible,
-      );
+    test('anything starting with M is postgraduate', () {
+      for (final code in ['MCA', 'MIC', 'MTX', 'MZZ']) {
+        expect(branchFamilyForCode(code), BranchFamily.postgraduate);
+      }
     });
 
-    test('an explicit exclusion flags the excluded family', () {
-      const urban = ['All B.Techs (except CS/IT Related)'];
-      expect(
-        branchRelevance(branch: cse, eligibleBranches: urban),
-        BranchRelevance.notOpen,
-      );
-      expect(
-        branchRelevance(branch: mech, eligibleBranches: urban),
-        BranchRelevance.eligible,
-      );
+    test('everything else is unknown and never flagged', () {
+      for (final code in ['BAI', 'BBT', 'BPS', 'XYZ', 'ABC']) {
+        expect(branchFamilyForCode(code), isNull);
+        expect(
+          branchRelevance(
+            branch: null,
+            eligibleBranches: const ['B.Tech CSE/IT related branches'],
+          ),
+          BranchRelevance.unknown,
+        );
+      }
     });
 
-    test('an exclusion naming nothing recognisable stays unknown', () {
-      expect(
-        branchRelevance(
-          branch: cse,
-          eligibleBranches: const ['All B.Techs except backlog holders'],
-        ),
-        BranchRelevance.unknown,
-      );
-    });
-
-    test('an exclusion without an "all" base stays unknown', () {
-      expect(
-        branchRelevance(
-          branch: mech,
-          eligibleBranches: const ['Select branches except CSE'],
-        ),
-        BranchRelevance.unknown,
-      );
-    });
-
-    test('WinWire style lists of specialisations read as CSE', () {
-      const winwire = [
-        'B. Tech. CS/IT Related Branches',
-        'CSE',
-        'IT',
-        'AIML',
-        'DS',
-      ];
-      expect(
-        branchRelevance(branch: cse, eligibleBranches: winwire),
-        BranchRelevance.eligible,
-      );
-      expect(
-        branchRelevance(branch: mech, eligibleBranches: winwire),
-        BranchRelevance.notOpen,
-      );
+    test('case and padding do not change the answer', () {
+      expect(branchFamilyForCode('bct'), BranchFamily.computerScience);
+      expect(branchFamilyForCode('  bit  '), BranchFamily.informationTechnology);
     });
   });
 }

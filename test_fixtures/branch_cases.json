@@ -1,0 +1,174 @@
+{
+  "note": "Read by both test/branch_eligibility_test.dart and functions-py/tests/test_branches.py. Adding a case here must make both suites agree or one of them fails.",
+  "families": {
+    "computer_science": "computerScience",
+    "information_technology": "informationTechnology",
+    "electrical": "electrical",
+    "mechanical": "mechanical",
+    "postgraduate": "postgraduate"
+  },
+  "codes": [
+    { "code": "BCT", "family": "computer_science" },
+    { "code": "BCE", "family": "computer_science" },
+    { "code": "BCI", "family": "computer_science" },
+    { "code": "BCS", "family": "computer_science" },
+    { "code": "BCX", "family": "computer_science" },
+    { "code": "BIT", "family": "information_technology" },
+    { "code": "BEE", "family": "electrical" },
+    { "code": "BEC", "family": "electrical" },
+    { "code": "BEI", "family": "electrical" },
+    { "code": "BEZ", "family": "electrical" },
+    { "code": "BMY", "family": "mechanical" },
+    { "code": "BME", "family": "mechanical" },
+    { "code": "BMA", "family": "mechanical" },
+    { "code": "MCA", "family": "postgraduate" },
+    { "code": "MIC", "family": "postgraduate" },
+    { "code": "MTX", "family": "postgraduate" },
+    { "code": "M", "family": "postgraduate" },
+    { "code": "BAI", "family": null },
+    { "code": "BBT", "family": null },
+    { "code": "BPS", "family": null },
+    { "code": "BDS", "family": null },
+    { "code": "XYZ", "family": null },
+    { "code": "B", "family": null },
+    { "code": "", "family": null },
+    { "code": null, "family": null }
+  ],
+  "regNos": [
+    { "regNo": "23BCT0098", "code": "BCT", "family": "computer_science" },
+    { "regNo": "22BCE1234", "code": "BCE", "family": "computer_science" },
+    { "regNo": " 23bct0098 ", "code": "BCT", "family": "computer_science" },
+    { "regNo": "23 BCT 0098", "code": "BCT", "family": "computer_science" },
+    { "regNo": "21BIT0001", "code": "BIT", "family": "information_technology" },
+    { "regNo": "20BEE0500", "code": "BEE", "family": "electrical" },
+    { "regNo": "19BMY0042", "code": "BMY", "family": "mechanical" },
+    { "regNo": "24MCA0007", "code": "MCA", "family": "postgraduate" },
+    { "regNo": "23BAI0210", "code": "BAI", "family": null },
+    { "regNo": "23XYZ0001", "code": "XYZ", "family": null },
+    { "regNo": "BCT0098", "code": null, "family": null },
+    { "regNo": "23BC0098", "code": null, "family": null },
+    { "regNo": "23BCT098", "code": null, "family": null },
+    { "regNo": "2023BCT0098", "code": null, "family": null },
+    { "regNo": "", "code": null, "family": null },
+    { "regNo": null, "code": null, "family": null }
+  ],
+  "relevance": [
+    {
+      "why": "Keyence is Mech/EEE/ECE only",
+      "eligibleBranches": [
+        "B.Tech Mech,EEE,ECE related branches",
+        "M.Tech Mech,EEE,ECE related branches"
+      ],
+      "expect": {
+        "23BCT0098": "not_open",
+        "21BIT0001": "not_open",
+        "19BMY0042": "eligible",
+        "20BEE0500": "eligible",
+        "24MCA0007": "eligible",
+        "23BAI0210": "unknown"
+      }
+    },
+    {
+      "why": "Superjoin is CSE/IT only",
+      "eligibleBranches": ["B.Tech CSE/IT related branches"],
+      "expect": {
+        "23BCT0098": "eligible",
+        "21BIT0001": "eligible",
+        "19BMY0042": "not_open",
+        "20BEE0500": "not_open",
+        "23XYZ0001": "unknown"
+      }
+    },
+    {
+      "why": "Kinaxis role-scoped entries, any one that admits you wins",
+      "eligibleBranches": [
+        "All B.Tech (CSE/IT) related branches",
+        "All B.Tech ECE related branches (only applicable for Technical Support Associate Role)",
+        "All B.Tech Mechanical related branches (only applicable for Associate Consultant - Solutions Role)"
+      ],
+      "expect": {
+        "23BCT0098": "eligible",
+        "19BMY0042": "eligible",
+        "20BEE0500": "eligible"
+      }
+    },
+    {
+      "why": "Urban Company excludes CS/IT explicitly",
+      "eligibleBranches": ["All B.Techs (except CS/IT Related)"],
+      "expect": {
+        "23BCT0098": "not_open",
+        "21BIT0001": "not_open",
+        "19BMY0042": "eligible",
+        "20BEE0500": "eligible"
+      }
+    },
+    {
+      "why": "WinWire lists specialisations as separate entries",
+      "eligibleBranches": [
+        "B. Tech. CS/IT Related Branches",
+        "CSE",
+        "IT",
+        "AIML",
+        "DS"
+      ],
+      "expect": {
+        "23BCT0098": "eligible",
+        "21BIT0001": "eligible",
+        "19BMY0042": "not_open"
+      }
+    },
+    {
+      "why": "Cisco is ECE/EEE only",
+      "eligibleBranches": [
+        "B. Tech ( ECE / EEE ) related branches only",
+        "ECE",
+        "EEE",
+        "Instrumentation",
+        "Electronics & Telecommunication"
+      ],
+      "expect": {
+        "20BEE0500": "eligible",
+        "23BCT0098": "not_open",
+        "19BMY0042": "not_open"
+      }
+    },
+    {
+      "why": "an empty eligibility list is never a mismatch",
+      "eligibleBranches": [],
+      "expect": {
+        "23BCT0098": "unknown",
+        "19BMY0042": "unknown"
+      }
+    },
+    {
+      "why": "blank entries are never a mismatch",
+      "eligibleBranches": ["", "   "],
+      "expect": { "23BCT0098": "unknown" }
+    },
+    {
+      "why": "text naming no branch at all is never a mismatch",
+      "eligibleBranches": ["All B.Techs", "No standing arrears"],
+      "expect": { "23BCT0098": "unknown", "19BMY0042": "unknown" }
+    },
+    {
+      "why": "an exclusion naming nothing recognisable stays unknown",
+      "eligibleBranches": ["All B.Techs except backlog holders"],
+      "expect": { "23BCT0098": "unknown" }
+    },
+    {
+      "why": "an exclusion without an all base stays unknown",
+      "eligibleBranches": ["Select branches except CSE"],
+      "expect": { "19BMY0042": "unknown" }
+    },
+    {
+      "why": "an unmapped code is never flagged, whatever the text says",
+      "eligibleBranches": ["B.Tech CSE/IT related branches"],
+      "expect": { "23BAI0210": "unknown", "23XYZ0001": "unknown" }
+    },
+    {
+      "why": "an ordinary word must not match a branch code",
+      "eligibleBranches": ["Necessary prerequisites apply"],
+      "expect": { "23BCT0098": "unknown", "20BEE0500": "unknown" }
+    }
+  ]
+}

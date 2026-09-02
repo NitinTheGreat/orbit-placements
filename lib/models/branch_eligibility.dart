@@ -1,13 +1,9 @@
 enum BranchFamily {
   computerScience,
   informationTechnology,
-  electronicsCommunication,
-  electricalElectronics,
-  instrumentation,
+  electrical,
   mechanical,
-  civil,
-  chemical,
-  biotechnology,
+  postgraduate,
 }
 
 class BranchInfo {
@@ -18,66 +14,12 @@ class BranchInfo {
   final BranchFamily family;
 }
 
-const Map<String, BranchInfo> vitBranchCodes = <String, BranchInfo>{
-  'BCE': BranchInfo(
-    'BCE',
-    'Computer Science and Engineering',
-    BranchFamily.computerScience,
-  ),
-  'BCT': BranchInfo(
-    'BCT',
-    'Computer Science and Engineering',
-    BranchFamily.computerScience,
-  ),
-  'BAI': BranchInfo(
-    'BAI',
-    'Computer Science and Engineering (AI and Machine Learning)',
-    BranchFamily.computerScience,
-  ),
-  'BCI': BranchInfo(
-    'BCI',
-    'Computer Science and Engineering (Information Security)',
-    BranchFamily.computerScience,
-  ),
-  'BPS': BranchInfo(
-    'BPS',
-    'Computer Science and Engineering (Cyber Physical Systems)',
-    BranchFamily.computerScience,
-  ),
-  'BDS': BranchInfo(
-    'BDS',
-    'Computer Science and Engineering (Data Science)',
-    BranchFamily.computerScience,
-  ),
-  'BRS': BranchInfo(
-    'BRS',
-    'Computer Science and Engineering (AI and Robotics)',
-    BranchFamily.computerScience,
-  ),
-  'BIT': BranchInfo(
-    'BIT',
-    'Information Technology',
-    BranchFamily.informationTechnology,
-  ),
-  'BEC': BranchInfo(
-    'BEC',
-    'Electronics and Communication Engineering',
-    BranchFamily.electronicsCommunication,
-  ),
-  'BEE': BranchInfo(
-    'BEE',
-    'Electrical and Electronics Engineering',
-    BranchFamily.electricalElectronics,
-  ),
-  'BEI': BranchInfo(
-    'BEI',
-    'Electronics and Instrumentation Engineering',
-    BranchFamily.instrumentation,
-  ),
-  'BME': BranchInfo('BME', 'Mechanical Engineering', BranchFamily.mechanical),
-  'BCL': BranchInfo('BCL', 'Civil Engineering', BranchFamily.civil),
-  'BCH': BranchInfo('BCH', 'Chemical Engineering', BranchFamily.chemical),
-  'BBT': BranchInfo('BBT', 'Biotechnology', BranchFamily.biotechnology),
+const Map<BranchFamily, String> branchFamilyNames = <BranchFamily, String>{
+  BranchFamily.computerScience: 'Computer Science and Engineering',
+  BranchFamily.informationTechnology: 'Information Technology',
+  BranchFamily.electrical: 'Electrical and Electronics',
+  BranchFamily.mechanical: 'Mechanical',
+  BranchFamily.postgraduate: 'Postgraduate',
 };
 
 final RegExp _regNoPattern = RegExp(r'^(\d{2})([A-Z]{3})(\d{4})$');
@@ -87,16 +29,39 @@ String? branchCodeFromRegNo(String? regNo) {
   if (cleaned == null || cleaned.isEmpty) {
     return null;
   }
-  final match = _regNoPattern.firstMatch(cleaned);
-  return match?.group(2);
+  return _regNoPattern.firstMatch(cleaned)?.group(2);
+}
+
+BranchFamily? branchFamilyForCode(String? code) {
+  final upper = code?.trim().toUpperCase();
+  if (upper == null || upper.isEmpty) {
+    return null;
+  }
+  if (upper == 'BIT') {
+    return BranchFamily.informationTechnology;
+  }
+  if (upper.startsWith('BC')) {
+    return BranchFamily.computerScience;
+  }
+  if (upper.startsWith('BE')) {
+    return BranchFamily.electrical;
+  }
+  if (upper.startsWith('BM')) {
+    return BranchFamily.mechanical;
+  }
+  if (upper.startsWith('M')) {
+    return BranchFamily.postgraduate;
+  }
+  return null;
 }
 
 BranchInfo? branchForRegNo(String? regNo) {
   final code = branchCodeFromRegNo(regNo);
-  if (code == null) {
+  final family = branchFamilyForCode(code);
+  if (code == null || family == null) {
     return null;
   }
-  return vitBranchCodes[code];
+  return BranchInfo(code, branchFamilyNames[family]!, family);
 }
 
 const Map<BranchFamily, List<String>> _familyKeywords =
@@ -116,20 +81,17 @@ const Map<BranchFamily, List<String>> _familyKeywords =
         'it',
         'information technology',
       ],
-      BranchFamily.electronicsCommunication: <String>[
+      BranchFamily.electrical: <String>[
         'ece',
         'ecm',
+        'eee',
+        'eie',
+        'electrical',
+        'electronics',
         'electronics and communication',
         'electronics communication',
         'electronics and telecommunication',
-      ],
-      BranchFamily.electricalElectronics: <String>[
-        'eee',
-        'electrical',
         'electrical and electronics',
-      ],
-      BranchFamily.instrumentation: <String>[
-        'eie',
         'instrumentation',
         'electronics and instrumentation',
       ],
@@ -139,14 +101,7 @@ const Map<BranchFamily, List<String>> _familyKeywords =
         'mechatronics',
         'automotive',
       ],
-      BranchFamily.civil: <String>['civil'],
-      BranchFamily.chemical: <String>['chemical', 'chem'],
-      BranchFamily.biotechnology: <String>[
-        'bio',
-        'biotech',
-        'biotechnology',
-        'biomedical',
-      ],
+      BranchFamily.postgraduate: <String>['m tech', 'mtech', 'mca', 'msc'],
     };
 
 final RegExp _separators = RegExp(r'[^a-z0-9]+');
@@ -228,4 +183,14 @@ BranchRelevance branchRelevance({
   }
 
   return sawNotOpen ? BranchRelevance.notOpen : BranchRelevance.unknown;
+}
+
+BranchRelevance branchRelevanceForRegNo({
+  required String? regNo,
+  required List<String> eligibleBranches,
+}) {
+  return branchRelevance(
+    branch: branchForRegNo(regNo),
+    eligibleBranches: eligibleBranches,
+  );
 }

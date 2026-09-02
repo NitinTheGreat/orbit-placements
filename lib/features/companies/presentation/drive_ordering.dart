@@ -1,11 +1,37 @@
 import '../../../models/application_status.dart';
+import '../../../models/branch_eligibility.dart';
 import '../../../models/company.dart';
 import '../../../models/student_company_status.dart';
 
-enum DriveBand { actionNeeded, openNoAction, ongoing, concluded }
+enum DriveBand { actionNeeded, openNoAction, ongoing, concluded, branchMismatch }
 
-DriveBand driveBand(DriveApplication application) {
+bool sinksForBranch({
+  required BranchInfo? branch,
+  required Company company,
+  required StudentCompanyStatus? status,
+}) {
+  if (status?.optedIn == true) {
+    return false;
+  }
+  return branchRelevance(
+        branch: branch,
+        eligibleBranches: company.eligibleBranches,
+      ) ==
+      BranchRelevance.notOpen;
+}
+
+DriveBand driveBand(
+  DriveApplication application, {
+  BranchInfo? branch,
+}) {
   final company = application.company;
+  if (sinksForBranch(
+    branch: branch,
+    company: company,
+    status: application.status,
+  )) {
+    return DriveBand.branchMismatch;
+  }
   if (concludedStatuses.contains(company.status)) {
     return DriveBand.concluded;
   }
@@ -51,6 +77,7 @@ int _byDeadlineDescending(Company a, Company b) {
 List<Company> orderDrives({
   required List<Company> companies,
   required Map<String, StudentCompanyStatus> statusesByCompanyId,
+  BranchInfo? branch,
   DateTime? now,
 }) {
   final bands = <String, DriveBand>{};
@@ -61,6 +88,7 @@ List<Company> orderDrives({
         status: statusesByCompanyId[company.id],
         now: now,
       ),
+      branch: branch,
     );
   }
 

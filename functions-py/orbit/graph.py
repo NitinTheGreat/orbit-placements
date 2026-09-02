@@ -6,6 +6,7 @@ from typing import Any
 from langgraph.graph import END, START, StateGraph
 
 from .attachments import extract_text, is_supported
+from .branches import is_confident_mismatch, reg_no_from_identifiers
 from .cleaning import clean_body, content_hash
 from .matching import find_identifier, sender_allowed
 from .state import IngestionState, halt
@@ -317,13 +318,27 @@ def make_update_status(deps: Deps):
                 history, round_id, result, state["message_id"], now
             )
 
+        opted_in = existing.get("optedIn")
+        if opted_in is None:
+            off_branch = is_confident_mismatch(
+                reg_no_from_identifiers(state.get("student_identifiers")),
+                company.get("eligibleBranches"),
+            )
+            opted_in = None if off_branch else True
+            if off_branch:
+                logger.info(
+                    "auto_opt_in_suppressed company=%s message=%s",
+                    company_id,
+                    state.get("message_id"),
+                )
+
         payload = {
             "studentId": student_id,
             "companyId": company_id,
             "roundHistory": history,
             "currentRoundId": resolve_current_round_id(history, rounds),
             "overallStatus": resolve_overall_status(history, rounds),
-            "optedIn": True if existing.get("optedIn") is None else existing["optedIn"],
+            "optedIn": opted_in,
             "updatedAt": now,
             "source": "gmail_ingestion",
         }

@@ -268,6 +268,7 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
     final companies = orderDrives(
       companies: matched,
       statusesByCompanyId: statusesByCompanyId,
+      branch: branch,
     );
 
     final narrowed = lock != null || filter != DriveFilter.all;

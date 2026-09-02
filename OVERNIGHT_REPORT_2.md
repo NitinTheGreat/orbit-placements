@@ -122,7 +122,73 @@ tell you to revoke at myaccount.google.com/permissions first.
 
 ## Part B — branch classification from confirmed rules
 
-**Status:** not started
+**Status:** done and deployed
+
+### 4. Prefix rules, implemented once and mirrored
+Last night's guessed 15-entry table is gone. Both languages now implement
+exactly your rules, in the order you gave them:
+
+    BIT exactly      -> IT
+    starts with BC   -> CS family
+    starts with BE   -> Electrical family
+    starts with BM   -> Mechanical family
+    starts with M    -> M.Tech / postgraduate, any specialisation
+    anything else    -> unknown, never flagged
+
+`BIT` is checked **before** the `B` prefixes, otherwise nothing would reach
+it. Both implementations order the checks identically.
+
+- Dart: `lib/models/branch_eligibility.dart`
+- Python: `functions-py/orbit/branches.py`
+
+**The anti-drift safeguard is real, not nominal.** `test_fixtures/branch_cases.json`
+is a single file read by *both* suites — 25 code cases, 16 registration
+numbers, and 13 eligibility scenarios covering all 18 production drives'
+real text. The Dart suite parametrises over it, and so does the Python
+suite via `pytest.mark.parametrize`. Adding a row to that file forces both
+languages to agree or one of them fails. Includes `BCT`, `BCE`, `BIT`,
+`BEE`, `BMY`, `MCA`, plus `BCX`/`BEZ`/`BMA` to prove the third letter is
+genuinely ignored, and `BAI`/`BBT`/`BPS`/`XYZ`/`B`/`""`/`null` as unknowns.
+
+**Consequence worth knowing:** under your rules `BAI`, `BBT`, `BPS` and
+`BDS` are now **unknown**, where last night's guessed table called some of
+them CSE. Unknown means no flag and no suppression, so those students see
+everything — which is the safe direction, and it is what the rules you
+confirmed produce.
+
+### 5. Fifth sort band — done
+`DriveBand.branchMismatch` sits below `concluded`. A drive lands there only
+when the branch check is a confident mismatch **and** `optedIn != true`.
+
+**Judgment call on "isn't tracking":** I read that as requiring an
+*explicit* `optedIn: true`. A missing status document or `optedIn: null` is
+not a deliberate choice, so those still sink. An explicit opt-**out** also
+sinks, since the student is not tracking it either. Only a deliberate opt-in
+rescues the drive to its normal band. All three cases are tested.
+
+### 6. Auto-opt-in gate — done, and this is the live behaviour change
+
+**Stating it plainly, as you asked:** from this deploy onward, when Gmail
+ingestion writes a student's status for a drive and that student has **no
+existing choice** (`optedIn` is null), Orbit will now leave it null instead
+of setting it to `true` **if and only if** the branch check is a confident
+mismatch. Concretely: a `23BCT0098` student named in a Keyence
+(Mech/EEE/ECE) mail will no longer be auto-tracked into it.
+
+Everything else is unchanged and tested to be so: an unknown branch code
+auto-tracks, a drive with no eligibility text auto-tracks, eligibility text
+naming no recognisable branch auto-tracks, a student with no parseable
+registration number auto-tracks, and an existing explicit `true` or `false`
+is never overwritten.
+
+The student's registration number is recovered from the existing
+`student_identifiers` list by finding the entry that parses as one, so no
+new plumbing was threaded through the runner.
+
+**Verified:** 83 Dart tests in the branch suite, 90 Python, 15 ordering
+tests including 6 new band cases, 9 auto-opt-in cases. 252 Dart tests and
+212 Python tests overall, analyze clean. Ingestion functions deployed to
+`orbit-507316`.
 
 ---
 

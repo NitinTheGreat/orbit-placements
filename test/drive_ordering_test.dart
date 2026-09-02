@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit/features/companies/presentation/drive_ordering.dart';
+import 'package:orbit/models/branch_eligibility.dart';
 import 'package:orbit/models/company.dart';
 import 'package:orbit/models/student_company_status.dart';
 
@@ -10,12 +11,14 @@ Company drive(
   CompanyStatus status = CompanyStatus.registrationOpen,
   DateTime? deadline,
   bool requiresAction = true,
+  List<String> eligibleBranches = const [],
 }) {
   return Company(
     id: name,
     name: name,
     category: 'Core',
     status: status,
+    eligibleBranches: eligibleBranches,
     registrationDeadline: deadline,
     requirements: requiresAction
         ? const [
@@ -41,13 +44,27 @@ StudentCompanyStatus done(String companyId) {
 List<String> namesOf(
   List<Company> companies, {
   Map<String, StudentCompanyStatus> statuses = const {},
+  BranchInfo? branch,
 }) {
   return orderDrives(
     companies: companies,
     statusesByCompanyId: statuses,
+    branch: branch,
     now: now,
   ).map((company) => company.name).toList();
 }
+
+final cse = branchForRegNo('23BCT0098');
+
+StudentCompanyStatus tracking(String companyId, bool optedIn) {
+  return StudentCompanyStatus(
+    studentId: 's',
+    companyId: companyId,
+    optedIn: optedIn,
+  );
+}
+
+const mechOnly = ['B.Tech Mech,EEE,ECE related branches'];
 
 void main() {
   group('bands', () {
@@ -179,5 +196,116 @@ void main() {
     ];
     orderDrives(companies: companies, statusesByCompanyId: const {}, now: now);
     expect(companies.map((c) => c.name).toList(), ['b', 'a']);
+  });
+
+  group('the branch mismatch band', () {
+    test('sinks below concluded when the student is not tracking it', () {
+      final companies = [
+        drive(
+          'off branch',
+          deadline: now.add(const Duration(hours: 1)),
+          eligibleBranches: mechOnly,
+        ),
+        drive(
+          'concluded',
+          status: CompanyStatus.closed,
+          deadline: now.subtract(const Duration(days: 2)),
+        ),
+        drive('open', deadline: now.add(const Duration(days: 5))),
+      ];
+
+      expect(namesOf(companies, branch: cse), [
+        'open',
+        'concluded',
+        'off branch',
+      ]);
+    });
+
+    test('an explicit opt-in keeps the drive in its normal band', () {
+      final companies = [
+        drive(
+          'off branch',
+          deadline: now.add(const Duration(hours: 1)),
+          eligibleBranches: mechOnly,
+        ),
+        drive('open', deadline: now.add(const Duration(days: 5))),
+      ];
+
+      expect(
+        namesOf(
+          companies,
+          branch: cse,
+          statuses: {'off branch': tracking('off branch', true)},
+        ),
+        ['off branch', 'open'],
+      );
+    });
+
+    test('an explicit opt-out still sinks, since it is not tracked', () {
+      final companies = [
+        drive(
+          'off branch',
+          deadline: now.add(const Duration(hours: 1)),
+          eligibleBranches: mechOnly,
+        ),
+        drive('open', deadline: now.add(const Duration(days: 5))),
+      ];
+
+      expect(
+        namesOf(
+          companies,
+          branch: cse,
+          statuses: {'off branch': tracking('off branch', false)},
+        ),
+        ['open', 'off branch'],
+      );
+    });
+
+    test('an unknown branch never sinks anything', () {
+      final companies = [
+        drive(
+          'off branch',
+          deadline: now.add(const Duration(hours: 1)),
+          eligibleBranches: mechOnly,
+        ),
+        drive('open', deadline: now.add(const Duration(days: 5))),
+      ];
+
+      expect(namesOf(companies, branch: null), ['off branch', 'open']);
+      expect(
+        namesOf(companies, branch: branchForRegNo('23BAI0210')),
+        ['off branch', 'open'],
+      );
+    });
+
+    test('an eligible drive is never sunk', () {
+      final companies = [
+        drive(
+          'on branch',
+          deadline: now.add(const Duration(hours: 1)),
+          eligibleBranches: const ['B.Tech CSE/IT related branches'],
+        ),
+        drive('open', deadline: now.add(const Duration(days: 5))),
+      ];
+
+      expect(namesOf(companies, branch: cse), ['on branch', 'open']);
+    });
+
+    test('several mismatches order by deadline among themselves', () {
+      final companies = [
+        drive(
+          'later',
+          deadline: now.add(const Duration(days: 9)),
+          eligibleBranches: mechOnly,
+        ),
+        drive(
+          'sooner',
+          deadline: now.add(const Duration(days: 2)),
+          eligibleBranches: mechOnly,
+        ),
+      ];
+
+      expect(namesOf(companies, branch: cse), ['sooner', 'later']);
+    });
   });
 }
