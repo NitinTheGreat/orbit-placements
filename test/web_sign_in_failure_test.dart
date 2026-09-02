@@ -3,19 +3,19 @@ import 'package:orbit/services/auth_service.dart';
 
 void main() {
   group('web sign-in failure messages', () {
-    test('a redirect uri mismatch names the missing handler URI', () {
+    test('a redirect uri mismatch names the JavaScript origin to add', () {
       final message = describeWebSignInFailure(
         'auth/invalid-credential',
         'Error 400: redirect_uri_mismatch',
       );
-      expect(message, contains('__/auth/handler'));
-      expect(message, contains('orbit-507316.firebaseapp.com'));
-      expect(message, contains('alongside any others already there'));
+      expect(message, contains('orbit-507316.web.app'));
+      expect(message, contains('Authorized JavaScript'));
+      expect(message, contains('alongside any entries already there'));
     });
 
     test('an unauthorized domain says the same thing', () {
       final message = describeWebSignInFailure('unauthorized-domain', null);
-      expect(message, contains('__/auth/handler'));
+      expect(message, contains('orbit-507316.web.app'));
     });
 
     test('a disabled provider points at the right console page', () {

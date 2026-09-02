@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/app_constants.dart';
@@ -5,6 +6,8 @@ import '../../../core/theme/app_tokens.dart';
 import '../../../core/widgets/orbit_mark.dart';
 import '../../../core/widgets/orbit_notice.dart';
 import '../../../services/auth_service.dart';
+import '../../../services/google_button_stub.dart'
+    if (dart.library.js_interop) '../../../services/google_button_web.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,6 +21,44 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _busy = false;
   String? _error;
+  bool _webReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) {
+      _prepareWeb();
+    }
+  }
+
+  @override
+  void dispose() {
+    _authService.stopWebSignInListener();
+    super.dispose();
+  }
+
+  Future<void> _prepareWeb() async {
+    try {
+      await _authService.startWebSignInListener(onError: _reportWebError);
+      if (mounted) {
+        setState(() => _webReady = true);
+      }
+    } on Object catch (error) {
+      _reportWebError(error);
+    }
+  }
+
+  void _reportWebError(Object error) {
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _busy = false;
+      _error = error is AuthException
+          ? error.message
+          : 'Sign-in did not go through. Check your connection and try again.';
+    });
+  }
 
   Future<void> _signIn() async {
     setState(() {
@@ -96,16 +137,37 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: OrbitSpacing.lg),
                   ],
-                  FilledButton(
-                    onPressed: _busy ? null : _signIn,
-                    child: _busy
-                        ? const SizedBox(
-                            width: 19,
-                            height: 19,
-                            child: CircularProgressIndicator(strokeWidth: 2.2),
-                          )
-                        : const Text('Continue with Google'),
-                  ),
+                  if (kIsWeb)
+                    Center(
+                      child: _webReady
+                          ? googleSignInButton()
+                          : const SizedBox(
+                              height: 40,
+                              width: 40,
+                              child: Center(
+                                child: SizedBox(
+                                  width: 19,
+                                  height: 19,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.2,
+                                  ),
+                                ),
+                              ),
+                            ),
+                    )
+                  else
+                    FilledButton(
+                      onPressed: _busy ? null : _signIn,
+                      child: _busy
+                          ? const SizedBox(
+                              width: 19,
+                              height: 19,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.2,
+                              ),
+                            )
+                          : const Text('Continue with Google'),
+                    ),
                   const SizedBox(height: OrbitSpacing.lg),
                   Text(
                     'Sign in with your @${AppConstants.allowedEmailDomain} '

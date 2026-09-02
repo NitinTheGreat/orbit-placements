@@ -504,34 +504,74 @@ In the same OAuth client, **Authorized redirect URIs** must contain both:
 The two entries do different jobs and both are needed: the handler is for
 signing in, the bare origin is for the GIS popup that connects Gmail.
 
-### What I changed so this explains itself next time
-`describeWebSignInFailure` in `auth_service.dart` now turns
-`redirect_uri_mismatch` and `unauthorized-domain` into a message naming the
-exact missing URI and saying to add it *alongside* the existing entries,
-rather than surfacing Google's raw error. It also handles a disabled Google
-provider and a blocked popup. 6 tests; PWA rebuilt and redeployed.
+### Second attempt — fixed in code, no console step needed
 
-**Judgment call:** I did not rewrite web sign-in to route around the missing
-entry. It could be done — the GIS ID-token flow needs only a JavaScript
-origin, no redirect URI — but that would replace a working, standard auth
-path with a bespoke one to avoid a config line, and I cannot exercise it
-without a VIT account. Restoring the URI is the correct fix.
+You re-checked the console and login still failed, and my probe confirmed
+the handler URI was still absent:
+
+    NOT ALLOWED  https://orbit-507316.firebaseapp.com/__/auth/handler
+    NOT ALLOWED  https://orbit-507316.web.app/__/auth/handler
+    REGISTERED   https://orbit-507316.web.app
+    NOT ALLOWED  https://definitely-not-registered.example.com
+
+So I stopped asking for a console change and removed the dependency on a
+redirect URI altogether.
+
+**What changed.** Web sign-in no longer uses `signInWithPopup`, which routes
+through `authDomain/__/auth/handler` and therefore needs that exact URI
+registered. It now uses the **GIS ID-token flow** via `google_sign_in_web`'s
+`renderButton`, which authenticates entirely in-page and needs **only an
+Authorized JavaScript origin** — the one thing you have already added. The
+resulting ID token goes to `GoogleAuthProvider.credential(idToken:)` and
+`signInWithCredential`, which is the identical pattern the Android app has
+always used.
+
+`redirect_uri_mismatch` is now structurally impossible on web: no
+`redirect_uri` is sent at all.
+
+**What this costs.** The login screen on web shows Google's own rendered
+button instead of Orbit's styled one. That is not a preference, it is a
+requirement of the flow — GIS will not let an arbitrary element trigger it,
+and One Tap alone can be silently suppressed by the browser. Android and iOS
+are untouched and keep the Orbit button.
+
+**A defect I introduced and caught before shipping.** My first version
+passed `serverClientId` on web. Reading `google_sign_in_web`'s `init` showed
+`assert(params.serverClientId == null, 'serverClientId is not supported on
+Web.')`. Release builds strip asserts so it would have appeared to work,
+then behaved undefinedly. Web now passes `clientId` only; mobile still
+passes `serverClientId`, which it needs for the Gmail auth code.
+
+`hostedDomain` is passed through to GIS, so the account chooser is limited to
+`vitstudent.ac.in`, and the existing post-sign-in domain check still runs.
+
+**Verified on the live bundle:** `google-signin-client_id` (that plugin's own
+constant) and the GIS script are both present, the client id is compiled in,
+`renderButton` is in the shipped JS, and `signInWithPopup` is gone entirely.
+304 Dart tests pass, analyze clean, rebuilt with the dart-define file and
+redeployed.
+
+**Not verified:** I still cannot complete a real sign-in, because that needs
+a `@vitstudent.ac.in` account. I have removed the failure mode you hit and
+proved the new code is live, but the first genuine sign-in is yours to run.
+If it still fails, the message will now name the exact JavaScript origin to
+check rather than showing a raw Google error.
 
 ### A mistake of mine, recorded
-While committing this I ran `git add -A` without checking `git status`
-first, and it swept up a deletion of **both** report files that had happened
-in the working tree — I did not delete them and do not know what did. The
-commit `9c84f8a` therefore removed them. I restored both from `abff274`.
+While committing the first attempt I ran `git add -A` without checking
+`git status` first, and it swept up a deletion of **both** report files that
+had happened in the working tree — I did not delete them and do not know
+what did. Commit `9c84f8a` removed them; I restored both from `abff274`.
 Nothing else was lost. I should have read the status output before staging.
 
 ## Needs your attention
 
-**Do this first — login is down until you do**
+**Try this now**
 
-1. **Re-add `https://orbit-507316.firebaseapp.com/__/auth/handler`** to the
-   OAuth client's Authorized redirect URIs, keeping
-   `https://orbit-507316.web.app`. See the section above. Ask me afterwards
-   and I will re-run the probe to confirm both are accepted.
+1. **Sign in at https://orbit-507316.web.app** using Google's button. No
+   console change is needed any more — the redirect URI dependency is gone.
+   If it still fails, send me the message; it now names the exact setting to
+   check.
 
 **One live behaviour change to be aware of**
 

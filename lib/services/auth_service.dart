@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -21,12 +23,13 @@ class SignInCancelled implements Exception {
 String describeWebSignInFailure(String code, String? message) {
   final detail = (message ?? '').toLowerCase();
 
-  if (code == 'unauthorized-domain' || detail.contains('redirect_uri_mismatch')) {
+  if (code == 'unauthorized-domain' ||
+      detail.contains('redirect_uri_mismatch') ||
+      detail.contains('origin')) {
     return
-        'Google sign-in is misconfigured for the web app. The OAuth client is '
-        'missing its authorized redirect URI '
-        'https://orbit-507316.firebaseapp.com/__/auth/handler. Add it back in '
-        'Google Cloud console credentials, alongside any others already there.';
+        'Google sign-in is misconfigured for the web app. The OAuth client '
+        'needs https://orbit-507316.web.app under Authorized JavaScript '
+        'origins, added alongside any entries already there.';
   }
 
   if (code == 'operation-not-allowed') {
@@ -51,6 +54,7 @@ class AuthService {
   final GoogleSignIn _googleSignIn;
 
   static bool _initialized = false;
+  StreamSubscription<GoogleSignInAuthenticationEvent>? _webSubscription;
 
   User? get currentUser => _auth.currentUser;
 
@@ -66,15 +70,74 @@ class AuthService {
             ? AppConfig.googleServerClientId
             : null);
     await _googleSignIn.initialize(
-      serverClientId: resolvedServerClientId,
+      clientId: kIsWeb ? resolvedServerClientId : null,
+      serverClientId: kIsWeb ? null : resolvedServerClientId,
       hostedDomain: AppConstants.allowedEmailDomain,
     );
     _initialized = true;
   }
 
+  Future<User> _signInFromWebAccount(GoogleSignInAccount account) async {
+    if (!AppConstants.isAllowedEmail(account.email)) {
+      await _googleSignIn.signOut();
+      throw AuthException(
+        'Please use your VIT email (@${AppConstants.allowedEmailDomain}). '
+        '${account.email} is not a VIT student account.',
+      );
+    }
+
+    final idToken = account.authentication.idToken;
+    if (idToken == null) {
+      await _googleSignIn.signOut();
+      throw const AuthException(
+        'Google did not return an identity token. Please try again.',
+      );
+    }
+
+    final userCredential = await _auth.signInWithCredential(
+      GoogleAuthProvider.credential(idToken: idToken),
+    );
+    final user = userCredential.user;
+    if (user == null || !AppConstants.isAllowedEmail(user.email)) {
+      await signOut();
+      throw AuthException(
+        'Please use your VIT email (@${AppConstants.allowedEmailDomain}).',
+      );
+    }
+    return user;
+  }
+
+  Future<void> startWebSignInListener({
+    void Function(Object error)? onError,
+  }) async {
+    if (!kIsWeb || _webSubscription != null) {
+      return;
+    }
+    await ensureInitialized();
+    _webSubscription = _googleSignIn.authenticationEvents.listen((
+      event,
+    ) async {
+      if (event is! GoogleSignInAuthenticationEventSignIn) {
+        return;
+      }
+      try {
+        await _signInFromWebAccount(event.user);
+      } on Object catch (error) {
+        onError?.call(error);
+      }
+    }, onError: (Object error) => onError?.call(error));
+  }
+
+  Future<void> stopWebSignInListener() async {
+    await _webSubscription?.cancel();
+    _webSubscription = null;
+  }
+
   Future<User> signInWithGoogle() async {
     if (kIsWeb) {
-      return _signInWithPopup();
+      throw const AuthException(
+        'Use the Google button to sign in on the web.',
+      );
     }
 
     await ensureInitialized();
@@ -124,34 +187,6 @@ class AuthService {
       );
     }
 
-    return user;
-  }
-
-  Future<User> _signInWithPopup() async {
-    final provider = GoogleAuthProvider()
-      ..setCustomParameters(<String, String>{
-        'hd': AppConstants.allowedEmailDomain,
-        'prompt': 'select_account',
-      });
-
-    final UserCredential userCredential;
-    try {
-      userCredential = await _auth.signInWithPopup(provider);
-    } on FirebaseAuthException catch (error) {
-      if (error.code == 'popup-closed-by-user' ||
-          error.code == 'cancelled-popup-request') {
-        throw const SignInCancelled();
-      }
-      throw AuthException(describeWebSignInFailure(error.code, error.message));
-    }
-
-    final user = userCredential.user;
-    if (user == null || !AppConstants.isAllowedEmail(user.email)) {
-      await signOut();
-      throw AuthException(
-        'Please use your VIT email (@${AppConstants.allowedEmailDomain}).',
-      );
-    }
     return user;
   }
 
