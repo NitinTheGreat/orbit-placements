@@ -179,6 +179,7 @@ def test_dry_run_counts_and_samples_rejections():
         "rejected_sender": 1,
         "rejected_cutoff": 1,
         "already_processed": 1,
+        "gone": 0,
     }
     reasons = {sample["reason"] for sample in result["rejected_sample"]}
     assert reasons == {"sender_not_allowed", "before_cutoff"}
@@ -193,3 +194,119 @@ def test_dry_run_writes_nothing():
 
     assert result["counts"]["seen"] == 0
     assert not hasattr(store, "put_status")
+
+
+class _Resp:
+    def __init__(self, status):
+        self.status = status
+
+
+class _HttpError(Exception):
+    def __init__(self, status):
+        super().__init__(f"HttpError {status}")
+        self.resp = _Resp(status)
+
+
+class RecordingStore(FakeStore):
+    def __init__(self, processed=()):
+        super().__init__(processed)
+        self.outcomes = {}
+
+    def mark_processed(self, message_id, student_id, outcome):
+        self.processed.add(message_id)
+        self.outcomes[message_id] = outcome
+
+    def get_company(self, company_id):
+        return None
+
+    def find_company_by_name(self, name):
+        return None
+
+    def get_broadcast_company(self, digest):
+        return None
+
+    def put_broadcast_company(self, digest, company_id):
+        return None
+
+    def upsert_company(self, company_id, payload, now):
+        return company_id or "company-1"
+
+    def get_status(self, student_id, company_id):
+        return None
+
+    def put_status(self, student_id, company_id, payload):
+        return None
+
+
+class MissingMessageGmail:
+    def __init__(self, missing, metadata=None):
+        self.missing = set(missing)
+        self.metadata = metadata or {
+            "sender": "VITians CDC 2027 <vitianscdc2027@vitstudent.ac.in>",
+            "subject": "Drive",
+            "internal_date_ms": 0,
+        }
+        self.asked = []
+
+    def get_metadata(self, message_id):
+        self.asked.append(message_id)
+        if message_id in self.missing:
+            raise _HttpError(404)
+        return self.metadata
+
+    def get_full_message(self, message_id):
+        return {"body": "", "attachments": []}
+
+    def get_attachment(self, message_id, attachment_id):
+        return b""
+
+
+def test_a_deleted_message_does_not_break_the_whole_sync():
+    from orbit.runner import run_messages
+    from tests.test_graph import make_deps
+
+    store = RecordingStore()
+    gmail = MissingMessageGmail(missing={"gone-1"})
+    deps = make_deps(store=store, gmail=gmail)
+
+    counts = run_messages(
+        deps,
+        CONFIG,
+        "student-1",
+        ["23BCT0098"],
+        ["gone-1", "alive-1"],
+    )
+
+    assert counts["gone"] == 1
+    assert gmail.asked == ["gone-1", "alive-1"]
+    assert store.outcomes["gone-1"] == "message_gone"
+
+
+def test_a_deleted_message_is_never_retried():
+    from orbit.runner import run_messages
+    from tests.test_graph import make_deps
+
+    store = RecordingStore()
+    gmail = MissingMessageGmail(missing={"gone-1"})
+    deps = make_deps(store=store, gmail=gmail)
+
+    run_messages(deps, CONFIG, "student-1", ["23BCT0098"], ["gone-1"])
+    second = run_messages(deps, CONFIG, "student-1", ["23BCT0098"], ["gone-1"])
+
+    assert second["skipped"] == 1
+    assert gmail.asked == ["gone-1"]
+
+
+def test_a_real_failure_still_surfaces():
+    import pytest
+
+    from orbit.runner import run_messages
+    from tests.test_graph import make_deps
+
+    class BrokenGmail(MissingMessageGmail):
+        def get_metadata(self, message_id):
+            raise _HttpError(500)
+
+    deps = make_deps(store=RecordingStore(), gmail=BrokenGmail(missing=set()))
+    with pytest.raises(Exception):
+        run_messages(deps, CONFIG, "student-1", ["23BCT0098"], ["boom"])

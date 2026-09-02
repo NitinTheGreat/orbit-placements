@@ -486,6 +486,56 @@ working, and another student trying it). Rules deployed to `orbit-507316`.
 
 ---
 
+## Live incident — refresh returning "internal error" (FIXED, deployed)
+
+You reported this mid-session. The server was up; this was a real bug.
+
+**Cause.** `syncNow` was crashing with an unhandled `HttpError 404` on Gmail
+message `1a0602f92947a246` — "Requested entity was not found." That message
+was deleted from the mailbox after its id had been recorded, so every
+refresh re-listed the same dead id, hit the 404, and returned a 500. It was
+not intermittent: pull-to-refresh was permanently broken and would have
+stayed broken.
+
+**Fix.** `run_messages` now catches a 404 for a single message, marks it
+processed with the outcome `message_gone`, and carries on with the rest.
+`dry_run` got the same guard. A revoked token still raises `TokenRevoked` so
+the reconnect flow is untouched, and any other error still propagates rather
+than being swallowed.
+
+**Verified, not assumed.** Three regression tests: one deleted message does
+not stop the others, it is never retried on a later run, and a 500 still
+surfaces as a failure. Then I fetched that exact message id from your real
+mailbox with the live token and confirmed the error it raises is classified
+as a missing message. 113 Python tests pass.
+
+**Deployed** to `orbit-507316`. Pull-to-refresh should work now.
+
+**Side effect you should know about:** deploying to fix this also shipped
+Parts D and E, which I had been holding back for your approval. Cloud
+Functions deploys as one unit, so there was no way to ship the fix alone.
+What that means in practice:
+
+- **Notifications will not reach you yet.** `_notify` returns early when the
+  student has no FCM token, and nothing has ever written one. They start
+  only once you install a build containing the Part E client. So nothing
+  will surprise you overnight.
+- **not_listed can now be written** by live ingestion, behind all four gates
+  plus the two extra guards. This is the one live behaviour change.
+- `notifyOnStatusChange` and `notifyOnCompanyChange` were created in
+  `us-central1` while their triggers are in `asia-south1`. The deploy warns
+  about the cross-region hop. It works; it is just an extra network hop, and
+  worth collocating later.
+
+---
+
 ## Needs your attention
 
-Nothing yet.
+1. **Part A** — confirm `BCT` maps to a CSE-family branch in
+   `vitBranchCodes`. It is your own code and it drives every branch flag you
+   see. I could not verify it empirically; the shortlists are keyed by NeoID.
+2. **Part F** — do not turn App Check enforcement on until sideloaded builds
+   are shown to produce valid tokens. They probably will not.
+3. **Part D** — decide whether "Not shortlisted" and "Not selected" should
+   read differently, or identically.
+4. Nothing else is blocking.

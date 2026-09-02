@@ -390,11 +390,38 @@ reaches shell history and Secret Manager stores the exact bytes.
 - Empty states that distinguish a disconnected inbox from an empty directory
   from having tracking switched off everywhere
 
+## Android releases
+
+Release APKs are attached to GitHub Releases rather than committed to the
+repository. Build one with:
+
+    flutter build apk --release
+
+### The signing key is the debug key
+
+`android/app/build.gradle.kts` still signs release builds with the debug
+keystore. That is fine for handing an APK to friends who sideload it, and it
+is what the published releases use today. It is **not** acceptable for the
+Play Store, and it has consequences worth knowing before the first real
+release:
+
+- Google Play rejects APKs signed with the debug key outright.
+- The debug keystore lives in `~/.android/debug.keystore` and is regenerated
+  if lost, which changes the signature. Android refuses to install an update
+  signed by a different key, so anyone who sideloaded an earlier build has to
+  uninstall before installing a new one.
+- App Check's Play Integrity provider expects a Play-distributed, Play-linked
+  build. Sideloaded APKs will likely fail attestation, which is why App Check
+  enforcement is left unenforced.
+
+Before any Play Store submission: generate an upload keystore, keep it out of
+the repository, wire a `signingConfigs.release` reading from a gitignored
+`key.properties`, and register the new SHA-256 with the Firebase project so
+Google sign-in keeps working.
+
 ## Pending
 
-- Renewing Gmail watches before their seven-day expiry
-- A reconciliation sweep for mail missed while a watch was expired
-- Requirement checkboxes, which is why `requirements[].id` exists already
-- Push notifications (`fcmTokens` is modelled but never written yet)
 - Firebase Hosting for the web admin dashboard
 - Student-facing UI for setting your own stage on a drive
+- A release signing key, as above
+- iOS distribution

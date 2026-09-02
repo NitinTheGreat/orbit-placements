@@ -27,6 +27,11 @@ def is_revoked_error(error: Exception) -> bool:
     return status == 401
 
 
+def is_missing_message_error(error: Exception) -> bool:
+    status = getattr(getattr(error, "resp", None), "status", None)
+    return status == 404
+
+
 def is_history_too_old(error: Exception) -> bool:
     status = getattr(getattr(error, "resp", None), "status", None)
     if status == 404:
@@ -103,15 +108,27 @@ def run_messages(
     message_ids: list[str],
 ) -> dict[str, int]:
     graph = build_graph(deps)
-    counts = {"processed": 0, "skipped": 0, "written": 0}
+    counts = {"processed": 0, "skipped": 0, "written": 0, "gone": 0}
 
     for message_id in message_ids:
         if deps.store.is_processed(message_id):
             counts["skipped"] += 1
             continue
-        metadata = deps.gmail.get_metadata(message_id)
-        state = build_state(student_id, identifiers, message_id, metadata, config)
-        result = graph.invoke(state)
+
+        try:
+            metadata = deps.gmail.get_metadata(message_id)
+            state = build_state(student_id, identifiers, message_id, metadata, config)
+            result = graph.invoke(state)
+        except Exception as error:
+            if is_revoked_error(error):
+                raise TokenRevoked(str(error)) from error
+            if not is_missing_message_error(error):
+                raise
+            logger.info("message %s is gone from the mailbox, skipping", message_id)
+            deps.store.mark_processed(message_id, student_id, "message_gone")
+            counts["gone"] += 1
+            continue
+
         outcome = result.get("halt_reason") or "written"
         if outcome == "written":
             counts["written"] += 1
@@ -132,6 +149,7 @@ def dry_run(
         "rejected_sender": 0,
         "rejected_cutoff": 0,
         "already_processed": 0,
+        "gone": 0,
     }
     rejected_samples: list[dict[str, str]] = []
 
@@ -139,7 +157,13 @@ def dry_run(
         if store.is_processed(message_id):
             counts["already_processed"] += 1
             continue
-        metadata = gmail.get_metadata(message_id)
+        try:
+            metadata = gmail.get_metadata(message_id)
+        except Exception as error:
+            if not is_missing_message_error(error):
+                raise
+            counts["gone"] += 1
+            continue
         sender = metadata.get("sender", "")
         subject = metadata.get("subject", "")
 
