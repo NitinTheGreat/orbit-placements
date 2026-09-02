@@ -194,7 +194,65 @@ tests including 6 new band cases, 9 auto-opt-in cases. 252 Dart tests and
 
 ## Part C — in-progress tab and checkbox responsiveness
 
-**Status:** not started
+**Status:** done
+
+### 7. Why the in-progress tab was empty — it was the definition, and here is the proof
+
+**It was not a query or index bug.** I checked that first, and the tab does
+not query Firestore at all — it filters the already-loaded company list in
+memory through `matchesFilter`. There is no index to be missing.
+
+I then dumped your live data rather than reasoning about it:
+
+- 26 companies, 6 `studentCompanyStatus` documents.
+- **Zero** status documents contain a `cleared` round entry.
+- Exactly **one** contains an `invited` entry: Accenture, `overallStatus:
+  active`, `currentRoundId: training`.
+
+The old definition required `roundHistory.any(result == 'cleared')`, so the
+tab was correctly empty — there was genuinely nothing that matched.
+
+**The root cause of there being no `cleared` entries:** ingestion writes the
+extraction's `round.result`, which defaults to `"invited"`. A shortlist mail
+naming you means you have been *invited* to the next round; it almost never
+says in so many words that you *cleared* the previous one. So `cleared`
+essentially never gets written, and the tab could only ever have been empty.
+
+**Broadened, as you suggested.** `inProgress` now accepts a round result in
+`{cleared, invited}` via a named `activeRoundResults` set. `pending` still
+does not count, because pending means the outcome is unknown, and
+`rejected`/`not_listed` obviously do not. Accenture now appears, which is
+the correct answer for your live data.
+
+**One existing test asserted the old narrow behaviour** (`invited` → not in
+progress). I updated it rather than working around it, and split it into two
+tests so both halves of the new rule are pinned.
+
+### 8. Optimistic checkboxes and tracking toggle — done
+`lib/features/companies/presentation/optimistic_status.dart` holds pending
+edits as a pure, testable value: a map of requirement id to intended state
+plus an optional intended tracking value. The UI reads server state with
+those overrides applied, so a tap paints instantly.
+
+The write then runs in the background. On failure the override is dropped —
+the checkbox visibly returns to its real state — and a snackbar says so.
+
+**The part that needed care:** clearing an override on *success* would flash
+the old value if the Firestore stream had not caught up yet. Instead
+`reconcile` drops an override only once the server actually agrees with it,
+and each override is judged independently, so a slow write does not clear a
+fast one. That is tested.
+
+**Judgment call:** a pending edit on a drive with no status document
+materialises a temporary in-memory document so the checklist and the derived
+"complete" state can read it. Nothing is written to Firestore beyond the
+real update, so the lazy-creation rule from the schema still holds.
+
+**Verified:** 17 tests in `test/optimistic_status_test.dart` covering
+immediate paint, revert, several concurrent pending edits, repeat taps,
+independent reconciliation, and the derived completion flag flipping at
+once. Plus 7 new in-progress tests including the exact Accenture shape from
+production. 277 Dart tests, analyze clean.
 
 ---
 

@@ -52,6 +52,11 @@ bool actionNeeded({
   return registrationDeadline.toLocal().isAfter(now ?? DateTime.now());
 }
 
+const Set<RoundResult> activeRoundResults = {
+  RoundResult.cleared,
+  RoundResult.invited,
+};
+
 bool inProgress({
   required bool? optedIn,
   required OverallStatus overallStatus,
@@ -63,7 +68,7 @@ bool inProgress({
   if (overallStatus != OverallStatus.active) {
     return false;
   }
-  return roundHistory.any((entry) => entry.result == RoundResult.cleared);
+  return roundHistory.any((entry) => activeRoundResults.contains(entry.result));
 }
 
 bool checklistEditable(

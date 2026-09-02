@@ -12,6 +12,7 @@ import '../../../models/student_company_status.dart';
 import '../../../services/firestore_service.dart';
 import 'company_format.dart';
 import 'currency_format.dart';
+import 'optimistic_status.dart';
 import 'widgets/stage_pill.dart';
 import 'widgets/requirements_checklist.dart';
 
@@ -87,11 +88,79 @@ class _CompanyDetailScreenState extends State<CompanyDetailScreen> {
   }
 }
 
-class _DetailBody extends StatelessWidget {
+class _DetailBody extends StatefulWidget {
   const _DetailBody({required this.company, required this.firestoreService});
 
   final Company company;
   final FirestoreService firestoreService;
+
+  @override
+  State<_DetailBody> createState() => _DetailBodyState();
+}
+
+class _DetailBodyState extends State<_DetailBody> {
+  OptimisticStatus _pending = const OptimisticStatus();
+
+  Company get company => widget.company;
+  FirestoreService get firestoreService => widget.firestoreService;
+
+  void _complain(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _toggleRequirement(
+    String studentId,
+    String requirementId,
+    bool completed,
+  ) async {
+    setState(() {
+      _pending = _pending.withRequirement(requirementId, completed);
+    });
+
+    try {
+      await firestoreService.setRequirementCompleted(
+        studentId: studentId,
+        companyId: company.id,
+        requirementId: requirementId,
+        completed: completed,
+      );
+    } on Object {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _pending = _pending.withoutRequirement(requirementId);
+      });
+      _complain('That did not save. Check your connection and tap again.');
+    }
+  }
+
+  Future<void> _toggleTracking(String studentId, bool optedIn) async {
+    setState(() {
+      _pending = _pending.withOptedIn(optedIn);
+    });
+
+    try {
+      await firestoreService.setOptedIn(
+        studentId: studentId,
+        companyId: company.id,
+        optedIn: optedIn,
+      );
+    } on Object {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _pending = _pending.withoutOptedIn();
+      });
+      _complain('That did not save. Check your connection and try again.');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +168,7 @@ class _DetailBody extends StatelessWidget {
     final studentId = session.user?.uid;
 
     if (studentId == null) {
-      return _content(context, null);
+      return _content(context, null, null);
     }
 
     return StreamBuilder<StudentCompanyStatus?>(
@@ -107,11 +176,36 @@ class _DetailBody extends StatelessWidget {
         studentId: studentId,
         companyId: company.id,
       ),
-      builder: (context, snapshot) => _content(context, snapshot.data),
+      builder: (context, snapshot) {
+        final server = snapshot.data;
+        final reconciled = _pending.reconcile(server);
+        if (reconciled.pendingRequirements.length !=
+                _pending.pendingRequirements.length ||
+            reconciled.pendingOptedIn != _pending.pendingOptedIn) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() => _pending = reconciled);
+            }
+          });
+        }
+        return _content(
+          context,
+          reconciled.applyTo(
+            server,
+            studentId: studentId,
+            companyId: company.id,
+          ),
+          studentId,
+        );
+      },
     );
   }
 
-  Widget _content(BuildContext context, StudentCompanyStatus? status) {
+  Widget _content(
+    BuildContext context,
+    StudentCompanyStatus? status,
+    String? studentId,
+  ) {
     final theme = Theme.of(context);
     final application = DriveApplication(company: company, status: status);
     final urgency = deadlineUrgency(company.registrationDeadline);
@@ -145,6 +239,7 @@ class _DetailBody extends StatelessWidget {
           company: company,
           firestoreService: firestoreService,
           status: status,
+          onChanged: _toggleTracking,
         ),
         const SizedBox(height: OrbitSpacing.xl),
         _DeadlineCard(deadline: company.registrationDeadline, urgency: urgency),
@@ -187,16 +282,10 @@ class _DetailBody extends StatelessWidget {
           completedIds: status?.completedRequirementIds ?? const [],
           editable: application.isEditable,
           onToggle: (requirementId, completed) {
-            final studentId = SessionScope.of(context).user?.uid;
             if (studentId == null) {
               return;
             }
-            firestoreService.setRequirementCompleted(
-              studentId: studentId,
-              companyId: company.id,
-              requirementId: requirementId,
-              completed: completed,
-            );
+            _toggleRequirement(studentId, requirementId, completed);
           },
         ),
         const SizedBox(height: OrbitSpacing.xl),
@@ -211,11 +300,13 @@ class _TrackingToggle extends StatelessWidget {
     required this.company,
     required this.firestoreService,
     required this.status,
+    required this.onChanged,
   });
 
   final Company company;
   final FirestoreService firestoreService;
   final StudentCompanyStatus? status;
+  final void Function(String studentId, bool optedIn) onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -250,11 +341,7 @@ class _TrackingToggle extends StatelessWidget {
           style: theme.textTheme.bodySmall,
         ),
         value: tracking,
-        onChanged: (value) => firestoreService.setOptedIn(
-          studentId: studentId,
-          companyId: company.id,
-          optedIn: value,
-        ),
+        onChanged: (value) => onChanged(studentId, value),
       ),
     );
   }

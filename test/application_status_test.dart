@@ -232,14 +232,25 @@ void main() {
       );
     });
 
-    test('false with no cleared round', () {
+    test('false with no round the student is live in', () {
+      expect(
+        DriveApplication(
+          company: company(),
+          status: status(history: const []),
+          now: now,
+        ).isInProgress,
+        isFalse,
+      );
+    });
+
+    test('true once the student is invited to a round', () {
       expect(
         DriveApplication(
           company: company(),
           status: status(history: const [invited]),
           now: now,
         ).isInProgress,
-        isFalse,
+        isTrue,
       );
     });
 
@@ -699,6 +710,108 @@ void main() {
 
     test('an unknown result still falls back to pending', () {
       expect(RoundResult.fromWire('something_new'), RoundResult.pending);
+    });
+  });
+
+  group('in progress, broadened', () {
+    test('an invitation to a round counts as in progress', () {
+      expect(
+        inProgress(
+          optedIn: null,
+          overallStatus: OverallStatus.active,
+          roundHistory: const [
+            RoundHistoryEntry(roundId: 'oa', result: RoundResult.invited),
+          ],
+        ),
+        isTrue,
+      );
+    });
+
+    test('a cleared round still counts', () {
+      expect(
+        inProgress(
+          optedIn: null,
+          overallStatus: OverallStatus.active,
+          roundHistory: const [
+            RoundHistoryEntry(roundId: 'oa', result: RoundResult.cleared),
+          ],
+        ),
+        isTrue,
+      );
+    });
+
+    test('pending on its own is not enough', () {
+      expect(
+        inProgress(
+          optedIn: null,
+          overallStatus: OverallStatus.active,
+          roundHistory: const [
+            RoundHistoryEntry(roundId: 'oa', result: RoundResult.pending),
+          ],
+        ),
+        isFalse,
+      );
+    });
+
+    test('a finished outcome is never in progress', () {
+      for (final result in [RoundResult.rejected, RoundResult.notListed]) {
+        expect(
+          inProgress(
+            optedIn: null,
+            overallStatus: OverallStatus.active,
+            roundHistory: [
+              RoundHistoryEntry(roundId: 'oa', result: result),
+            ],
+          ),
+          isFalse,
+        );
+      }
+    });
+
+    test('an empty history is still not in progress', () {
+      expect(
+        inProgress(
+          optedIn: null,
+          overallStatus: OverallStatus.active,
+          roundHistory: const [],
+        ),
+        isFalse,
+      );
+    });
+
+    test('opting out and a settled outcome still exclude it', () {
+      const invited = [
+        RoundHistoryEntry(roundId: 'oa', result: RoundResult.invited),
+      ];
+      expect(
+        inProgress(
+          optedIn: false,
+          overallStatus: OverallStatus.active,
+          roundHistory: invited,
+        ),
+        isFalse,
+      );
+      expect(
+        inProgress(
+          optedIn: null,
+          overallStatus: OverallStatus.rejected,
+          roundHistory: invited,
+        ),
+        isFalse,
+      );
+    });
+
+    test('the Accenture shape from production now shows up', () {
+      expect(
+        inProgress(
+          optedIn: true,
+          overallStatus: OverallStatus.active,
+          roundHistory: const [
+            RoundHistoryEntry(roundId: 'training', result: RoundResult.invited),
+          ],
+        ),
+        isTrue,
+      );
     });
   });
 }
