@@ -113,7 +113,48 @@ asks for reduced motion.
 
 ## Part B — bottom navigation and profile
 
-**Status:** not started
+**Status:** done
+
+Four destinations in `lib/features/home/presentation/home_shell.dart`,
+mounted at `/companies` in place of the bare list screen. The bar is built
+from the existing tokens — `surfaceRaised` ground, `accentWash` pill behind
+the active item, `accentInk` and `inkFaint` for the two states. No new
+colours anywhere in this part.
+
+- **Drives** — the existing screen, chips untouched.
+- **Open now** — the same `CompanyListScreen`, locked to
+  `CompanyStatus.registrationOpen`, chip switcher hidden.
+- **Shortlisted** — same component, locked to `inProgress == true` or
+  `overallStatus == 'selected'`.
+- **Profile** — name and NeoID from onboarding, drives-tracked count,
+  requirements-completion rate, and a `fl_chart` donut of the status split
+  with a labelled legend. Sign out moved here from the drives header, which
+  is where it belongs now that there is a profile.
+
+The list screen took one parameter (`lock`) rather than being copied, so all
+four list tabs share one code path, one pagination controller, and one
+ordering pass.
+
+**Judgment call:** "Open now" reads the drive's own `status` field, not the
+deadline. A drive whose deadline has passed but which the placement cell has
+not closed still appears — because the source of truth for "can I still
+register" is what the mail said, and a passed deadline with an open status
+usually means an extension. Tested explicitly.
+
+**Judgment call:** the selected tab and the chip filter live in
+`home_state.dart` as top-level notifiers rather than widget state, so they
+survive opening a drive and coming back. That is what "persist for session"
+needs, since the shell is rebuilt on that return trip.
+
+fl_chart 1.2.0 added as a dependency.
+
+**Verified:** 15 new tests in `test/profile_stats_test.dart` covering the
+tracked count with and without a status doc, the completion rate over
+required steps only, the empty case, every breakdown slice and its priority
+order, and both locked tabs including the opted-out-but-selected edge.
+`flutter analyze` clean, 159 Dart tests pass.
+**Assumed:** not yet seen rendered on a device — chart sizing and bar
+spacing are unverified visually.
 
 ---
 

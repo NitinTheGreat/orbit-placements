@@ -6,7 +6,7 @@ import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/companies/presentation/company_detail_screen.dart';
-import '../../features/companies/presentation/company_list_screen.dart';
+import '../../features/home/presentation/home_shell.dart';
 import '../session/session_controller.dart';
 import 'app_redirect.dart';
 import 'app_routes.dart';
@@ -45,7 +45,7 @@ class AppRouter {
         GoRoute(
           path: AppPaths.companies,
           name: AppRoutes.companies,
-          builder: (context, state) => const CompanyListScreen(),
+          builder: (context, state) => const HomeShell(),
           routes: [
             GoRoute(
               path: AppPaths.companyDetail,
