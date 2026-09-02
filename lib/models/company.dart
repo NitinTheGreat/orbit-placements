@@ -76,6 +76,23 @@ class CompanyRound {
   }
 }
 
+enum StipendPeriod {
+  monthly('monthly'),
+  total('total'),
+  unspecified('unspecified');
+
+  const StipendPeriod(this.wireName);
+
+  final String wireName;
+
+  static StipendPeriod fromWire(Object? value) {
+    return StipendPeriod.values.firstWhere(
+      (period) => period.wireName == value,
+      orElse: () => StipendPeriod.unspecified,
+    );
+  }
+}
+
 enum RequirementType {
   neopat('neopat', 'NeoPAT'),
   googleForm('google_form', 'Form'),
@@ -172,6 +189,7 @@ class Company {
     required this.category,
     this.ctc,
     this.stipend,
+    this.stipendPeriod = StipendPeriod.unspecified,
     this.eligibleBranches = const <String>[],
     this.eligibilityCriteria,
     this.registrationDeadline,
@@ -191,6 +209,7 @@ class Company {
   final String category;
   final String? ctc;
   final String? stipend;
+  final StipendPeriod stipendPeriod;
   final List<String> eligibleBranches;
   final String? eligibilityCriteria;
   final DateTime? registrationDeadline;
@@ -238,6 +257,7 @@ class Company {
       category: data['category'] as String? ?? '',
       ctc: data['ctc'] as String?,
       stipend: data['stipend'] as String?,
+      stipendPeriod: StipendPeriod.fromWire(data['stipendPeriod']),
       eligibleBranches:
           (data['eligibleBranches'] as List<dynamic>?)
               ?.map((branch) => branch.toString())
@@ -293,6 +313,7 @@ class Company {
       'category': category,
       'ctc': ctc,
       'stipend': stipend,
+      'stipendPeriod': stipendPeriod.wireName,
       'eligibleBranches': eligibleBranches,
       'eligibilityCriteria': eligibilityCriteria,
       'registrationDeadline': registrationDeadline == null

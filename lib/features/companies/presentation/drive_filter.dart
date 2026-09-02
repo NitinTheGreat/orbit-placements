@@ -4,8 +4,10 @@ import '../../../models/student_company_status.dart';
 
 enum DriveFilter {
   all('All'),
-  tracking('Tracking'),
   actionNeeded('Action needed'),
+  inProgress('In progress'),
+  selected('Selected'),
+  rejected('Rejected'),
   closed('Closed');
 
   const DriveFilter(this.label);
@@ -19,23 +21,20 @@ bool matchesFilter({
   required StudentCompanyStatus? status,
   DateTime? now,
 }) {
-  switch (filter) {
-    case DriveFilter.all:
-      return true;
-    case DriveFilter.tracking:
-      return status?.optedIn != false;
-    case DriveFilter.actionNeeded:
-      return DriveApplication(
-        company: company,
-        status: status,
-        now: now,
-      ).needsAction;
-    case DriveFilter.closed:
-      final deadline = company.registrationDeadline?.toLocal();
-      final reference = now ?? DateTime.now();
-      return company.status == CompanyStatus.closed ||
-          (deadline != null && !deadline.isAfter(reference));
-  }
+  final application = DriveApplication(
+    company: company,
+    status: status,
+    now: now,
+  );
+
+  return switch (filter) {
+    DriveFilter.all => true,
+    DriveFilter.actionNeeded => application.needsAction,
+    DriveFilter.inProgress => application.isInProgress,
+    DriveFilter.selected => application.overallStatus == OverallStatus.selected,
+    DriveFilter.rejected => application.overallStatus == OverallStatus.rejected,
+    DriveFilter.closed => company.status == CompanyStatus.closed,
+  };
 }
 
 List<Company> applyFilter({
@@ -57,4 +56,15 @@ List<Company> applyFilter({
         ),
       )
       .toList(growable: false);
+}
+
+String emptyStateHeadline(DriveFilter filter) {
+  return switch (filter) {
+    DriveFilter.actionNeeded => "You're caught up.",
+    DriveFilter.selected => 'Nothing yet — keep at it.',
+    DriveFilter.inProgress => 'No drives in progress.',
+    DriveFilter.rejected => 'Nothing here.',
+    DriveFilter.closed => 'No closed drives yet.',
+    DriveFilter.all => 'No drives yet',
+  };
 }

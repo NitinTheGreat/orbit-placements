@@ -2,9 +2,9 @@ import '../features/companies/presentation/company_format.dart';
 import 'company.dart';
 import 'student_company_status.dart';
 
-const Set<CompanyStatus> actionableStatuses = {
-  CompanyStatus.registrationOpen,
-  CompanyStatus.inProgress,
+const Set<CompanyStatus> concludedStatuses = {
+  CompanyStatus.closed,
+  CompanyStatus.resultsDeclared,
 };
 
 bool applicationComplete(
@@ -43,13 +43,27 @@ bool actionNeeded({
   if (complete) {
     return false;
   }
-  if (!actionableStatuses.contains(status)) {
+  if (concludedStatuses.contains(status)) {
     return false;
   }
   if (registrationDeadline == null) {
     return false;
   }
   return registrationDeadline.toLocal().isAfter(now ?? DateTime.now());
+}
+
+bool inProgress({
+  required bool? optedIn,
+  required OverallStatus overallStatus,
+  required List<RoundHistoryEntry> roundHistory,
+}) {
+  if (optedIn == false) {
+    return false;
+  }
+  if (overallStatus != OverallStatus.active) {
+    return false;
+  }
+  return roundHistory.any((entry) => entry.result == RoundResult.cleared);
 }
 
 bool checklistEditable(
@@ -66,15 +80,40 @@ bool checklistEditable(
   return deadline.toLocal().isAfter(now ?? DateTime.now());
 }
 
-DeadlineUrgency raisedUrgency(DeadlineUrgency urgency, bool actionNeeded) {
-  if (!actionNeeded) {
-    return urgency;
+String companyStage(Company company, {DateTime? now}) {
+  if (company.status == CompanyStatus.closed) {
+    return 'Drive closed';
   }
-  return switch (urgency) {
-    DeadlineUrgency.distant => DeadlineUrgency.thisWeek,
-    DeadlineUrgency.thisWeek => DeadlineUrgency.imminent,
-    _ => urgency,
-  };
+  if (company.status == CompanyStatus.resultsDeclared) {
+    return 'Results declared';
+  }
+
+  final rounds = company.orderedRounds;
+  if (rounds.isNotEmpty) {
+    final latest = rounds.last;
+    final name = latest.name.trim();
+    if (name.isEmpty) {
+      return latest.type.label;
+    }
+    final lowered = name.toLowerCase();
+    if (lowered.contains('scheduled') ||
+        lowered.contains('announced') ||
+        lowered.contains('declared')) {
+      return name;
+    }
+    return switch (latest.type) {
+      RoundType.ppt || RoundType.oa => '$name scheduled',
+      RoundType.interview => '$name announced',
+      RoundType.other => name,
+    };
+  }
+
+  final deadline = company.registrationDeadline?.toLocal();
+  final reference = now ?? DateTime.now();
+  if (deadline != null && reference.isAfter(deadline)) {
+    return 'Registration closed';
+  }
+  return 'Registration open';
 }
 
 String applicationSummary({
@@ -91,6 +130,24 @@ String applicationSummary({
   return '${progress.done} of ${progress.total} steps done';
 }
 
+enum DriveOutcomeTag { selected, rejected, driveClosed, none }
+
+DriveOutcomeTag outcomeTag({
+  required OverallStatus overallStatus,
+  required CompanyStatus companyStatus,
+}) {
+  if (overallStatus == OverallStatus.selected) {
+    return DriveOutcomeTag.selected;
+  }
+  if (overallStatus == OverallStatus.rejected) {
+    return DriveOutcomeTag.rejected;
+  }
+  if (companyStatus == CompanyStatus.closed) {
+    return DriveOutcomeTag.driveClosed;
+  }
+  return DriveOutcomeTag.none;
+}
+
 class DriveApplication {
   const DriveApplication({
     required this.company,
@@ -104,27 +161,59 @@ class DriveApplication {
 
   List<String> get completedIds => status?.completedRequirementIds ?? const [];
 
+  bool? get optedIn => status?.optedIn;
+
+  OverallStatus get overallStatus =>
+      status?.overallStatus ?? OverallStatus.active;
+
   bool get isComplete =>
       applicationComplete(company.requirements, completedIds);
 
   bool get needsAction => actionNeeded(
-    optedIn: status?.optedIn,
+    optedIn: optedIn,
     complete: isComplete,
     status: company.status,
     registrationDeadline: company.registrationDeadline,
     now: now,
   );
 
+  bool get isInProgress => inProgress(
+    optedIn: optedIn,
+    overallStatus: overallStatus,
+    roundHistory: status?.roundHistory ?? const [],
+  );
+
   bool get isEditable =>
       checklistEditable(company.status, company.registrationDeadline, now: now);
+
+  String get stage => companyStage(company, now: now);
+
+  DriveOutcomeTag get tag =>
+      outcomeTag(overallStatus: overallStatus, companyStatus: company.status);
 
   String get summary => applicationSummary(
     requirements: company.requirements,
     completedIds: completedIds,
   );
 
-  DeadlineUrgency get urgency => raisedUrgency(
-    deadlineUrgency(company.registrationDeadline, now: now),
-    needsAction,
-  );
+  DeadlineUrgency get urgency {
+    if (tag != DriveOutcomeTag.none) {
+      return DeadlineUrgency.passed;
+    }
+    return raisedUrgency(
+      deadlineUrgency(company.registrationDeadline, now: now),
+      needsAction,
+    );
+  }
+}
+
+DeadlineUrgency raisedUrgency(DeadlineUrgency urgency, bool actionNeeded) {
+  if (!actionNeeded) {
+    return urgency;
+  }
+  return switch (urgency) {
+    DeadlineUrgency.distant => DeadlineUrgency.thisWeek,
+    DeadlineUrgency.thisWeek => DeadlineUrgency.imminent,
+    _ => urgency,
+  };
 }

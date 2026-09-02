@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_tokens.dart';
 import '../../../../core/widgets/pressable.dart';
-import '../../../../core/widgets/status_chip.dart';
 import '../../../../core/widgets/urgency_rail.dart';
 import '../../../../models/application_status.dart';
 import '../../../../models/company.dart';
 import '../../../../models/student_company_status.dart';
 import '../company_format.dart';
+import '../currency_format.dart';
+import 'stage_pill.dart';
 
 class DriveCard extends StatelessWidget {
   const DriveCard({super.key, required this.company, this.status, this.onTap});
@@ -71,7 +72,7 @@ class DriveCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: OrbitSpacing.sm),
-                      StatusChip(status: company.status, dense: true),
+                      StagePill(application: application, dense: true),
                     ],
                   ),
                   if (company.category.isNotEmpty) ...[
@@ -93,7 +94,10 @@ class DriveCard extends StatelessWidget {
                           color: colors.inkFaint,
                         ),
                         const SizedBox(width: OrbitSpacing.sm),
-                        Text(company.ctc!, style: theme.textTheme.labelMedium),
+                        Text(
+                          formatAmounts(company.ctc),
+                          style: theme.textTheme.labelMedium,
+                        ),
                       ],
                     ),
                   ],

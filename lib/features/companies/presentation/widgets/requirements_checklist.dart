@@ -170,6 +170,25 @@ class _RequirementTile extends StatelessWidget {
               ],
             ),
           ),
+          if (!requirement.hasUrl)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                OrbitSpacing.xxl + OrbitSpacing.sm,
+                0,
+                OrbitSpacing.lg,
+                OrbitSpacing.md,
+              ),
+              child: Text(
+                requirement.type == RequirementType.neopat
+                    ? 'Complete this in the NeoPAT app — no direct link in '
+                          'the email.'
+                    : 'No direct link in the email — check the original '
+                          'message below.',
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colors.inkFaint,
+                ),
+              ),
+            ),
           if (requirement.hasUrl)
             InkWell(
               onTap: () => _open(context),

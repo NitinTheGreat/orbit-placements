@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit/features/companies/presentation/company_format.dart';
+import 'package:orbit/features/companies/presentation/currency_format.dart';
 import 'package:orbit/features/companies/presentation/drive_filter.dart';
 import 'package:orbit/models/application_status.dart';
 import 'package:orbit/models/company.dart';
@@ -22,41 +23,81 @@ CompanyRequirement requirement(
   );
 }
 
+CompanyRound round(String id, int order, RoundType type, {String? name}) {
+  return CompanyRound(id: id, name: name ?? id, order: order, type: type);
+}
+
 Company company({
   List<CompanyRequirement> requirements = const [],
+  List<CompanyRound> rounds = const [],
   CompanyStatus status = CompanyStatus.registrationOpen,
   DateTime? deadline,
+  String? stipend,
+  StipendPeriod stipendPeriod = StipendPeriod.unspecified,
 }) {
   return Company(
     id: 'c1',
     name: 'Rubrik',
     category: 'Super Dream',
     requirements: requirements,
+    rounds: rounds,
     status: status,
     registrationDeadline: deadline,
+    stipend: stipend,
+    stipendPeriod: stipendPeriod,
   );
 }
 
 StudentCompanyStatus status({
   bool? optedIn,
   List<String> completed = const [],
+  OverallStatus overall = OverallStatus.active,
+  List<RoundHistoryEntry> history = const [],
 }) {
   return StudentCompanyStatus(
     studentId: 'u1',
     companyId: 'c1',
     optedIn: optedIn,
     completedRequirementIds: completed,
+    overallStatus: overall,
+    roundHistory: history,
   );
 }
 
 void main() {
+  group('missing status doc', () {
+    test('reads as opted in with nothing completed', () {
+      final application = DriveApplication(
+        company: company(requirements: [requirement('a')], deadline: future),
+        status: null,
+        now: now,
+      );
+
+      expect(application.optedIn, isNull);
+      expect(application.completedIds, isEmpty);
+      expect(application.overallStatus, OverallStatus.active);
+      expect(application.isComplete, isFalse);
+      expect(application.needsAction, isTrue);
+      expect(application.isInProgress, isFalse);
+    });
+
+    test('a drive with no required items is complete even with no doc', () {
+      final application = DriveApplication(
+        company: company(
+          requirements: [requirement('a', required: false)],
+          deadline: future,
+        ),
+        status: null,
+        now: now,
+      );
+      expect(application.isComplete, isTrue);
+      expect(application.needsAction, isFalse);
+    });
+  });
+
   group('applicationComplete', () {
     test('an empty required set counts as complete', () {
       expect(applicationComplete(const [], const []), isTrue);
-      expect(
-        applicationComplete([requirement('a', required: false)], const []),
-        isTrue,
-      );
     });
 
     test('every required id must be present', () {
@@ -71,71 +112,35 @@ void main() {
     });
   });
 
-  group('applicationSummary', () {
-    test('reads Applied when nothing is outstanding', () {
-      expect(
-        applicationSummary(requirements: const [], completedIds: const []),
-        'Applied',
-      );
-      expect(
-        applicationSummary(
-          requirements: [requirement('a')],
-          completedIds: ['a'],
-        ),
-        'Applied',
-      );
-    });
-
-    test('counts partial progress', () {
-      expect(
-        applicationSummary(
-          requirements: [requirement('a'), requirement('b')],
-          completedIds: ['a'],
-        ),
-        '1 of 2 steps done',
-      );
-    });
-
-    test('reads Not started with nothing checked', () {
-      expect(
-        applicationSummary(
-          requirements: [requirement('a'), requirement('b')],
-          completedIds: const [],
-        ),
-        'Not started',
-      );
-    });
-  });
-
   group('actionNeeded', () {
     test('true for an open incomplete drive before the deadline', () {
-      final application = DriveApplication(
-        company: company(requirements: [requirement('a')], deadline: future),
-        status: status(),
-        now: now,
+      expect(
+        DriveApplication(
+          company: company(requirements: [requirement('a')], deadline: future),
+          status: status(),
+          now: now,
+        ).needsAction,
+        isTrue,
       );
-      expect(application.needsAction, isTrue);
     });
 
-    test('false when the student opted out', () {
-      final application = DriveApplication(
-        company: company(requirements: [requirement('a')], deadline: future),
-        status: status(optedIn: false),
-        now: now,
+    test('false when opted out, complete, or past the deadline', () {
+      expect(
+        DriveApplication(
+          company: company(requirements: [requirement('a')], deadline: future),
+          status: status(optedIn: false),
+          now: now,
+        ).needsAction,
+        isFalse,
       );
-      expect(application.needsAction, isFalse);
-    });
-
-    test('false once every required step is done', () {
-      final application = DriveApplication(
-        company: company(requirements: [requirement('a')], deadline: future),
-        status: status(completed: ['a']),
-        now: now,
+      expect(
+        DriveApplication(
+          company: company(requirements: [requirement('a')], deadline: future),
+          status: status(completed: ['a']),
+          now: now,
+        ).needsAction,
+        isFalse,
       );
-      expect(application.needsAction, isFalse);
-    });
-
-    test('false after the deadline and when closed', () {
       expect(
         DriveApplication(
           company: company(requirements: [requirement('a')], deadline: past),
@@ -144,102 +149,307 @@ void main() {
         ).needsAction,
         isFalse,
       );
+    });
+
+    test('false once the drive is closed or results are declared', () {
+      for (final concluded in [
+        CompanyStatus.closed,
+        CompanyStatus.resultsDeclared,
+      ]) {
+        expect(
+          DriveApplication(
+            company: company(
+              requirements: [requirement('a')],
+              deadline: future,
+              status: concluded,
+            ),
+            status: status(),
+            now: now,
+          ).needsAction,
+          isFalse,
+          reason: '$concluded should suppress actionNeeded',
+        );
+      }
+    });
+
+    test('in progress still counts as actionable', () {
       expect(
         DriveApplication(
           company: company(
             requirements: [requirement('a')],
             deadline: future,
-            status: CompanyStatus.closed,
+            status: CompanyStatus.inProgress,
           ),
           status: status(),
           now: now,
         ).needsAction,
-        isFalse,
+        isTrue,
       );
     });
 
     test('a required item added after completion reopens the application', () {
       final completed = ['a'];
-      final before = DriveApplication(
-        company: company(requirements: [requirement('a')], deadline: future),
-        status: status(completed: completed),
-        now: now,
+      expect(
+        DriveApplication(
+          company: company(requirements: [requirement('a')], deadline: future),
+          status: status(completed: completed),
+          now: now,
+        ).needsAction,
+        isFalse,
       );
-      expect(before.isComplete, isTrue);
-      expect(before.needsAction, isFalse);
-
-      final after = DriveApplication(
-        company: company(
-          requirements: [requirement('a'), requirement('b')],
-          deadline: future,
-        ),
-        status: status(completed: completed),
-        now: now,
+      expect(
+        DriveApplication(
+          company: company(
+            requirements: [requirement('a'), requirement('b')],
+            deadline: future,
+          ),
+          status: status(completed: completed),
+          now: now,
+        ).needsAction,
+        isTrue,
       );
-      expect(after.isComplete, isFalse);
-      expect(after.needsAction, isTrue);
     });
   });
 
-  group('priority bump', () {
-    test('raises one step only when action is needed', () {
-      expect(
-        raisedUrgency(DeadlineUrgency.distant, false),
-        DeadlineUrgency.distant,
-      );
-      expect(
-        raisedUrgency(DeadlineUrgency.distant, true),
-        DeadlineUrgency.thisWeek,
-      );
-      expect(
-        raisedUrgency(DeadlineUrgency.thisWeek, true),
-        DeadlineUrgency.imminent,
-      );
-    });
-
-    test('never bumps past the top or lifts a passed deadline', () {
-      expect(
-        raisedUrgency(DeadlineUrgency.imminent, true),
-        DeadlineUrgency.imminent,
-      );
-      expect(raisedUrgency(DeadlineUrgency.today, true), DeadlineUrgency.today);
-      expect(
-        raisedUrgency(DeadlineUrgency.passed, true),
-        DeadlineUrgency.passed,
-      );
-    });
-
-    test(
-      'an outstanding step lifts a five day deadline into the coral band',
-      () {
-        final application = DriveApplication(
-          company: company(requirements: [requirement('a')], deadline: future),
-          status: status(),
-          now: now,
-        );
-        expect(deadlineUrgency(future, now: now), DeadlineUrgency.thisWeek);
-        expect(application.urgency, DeadlineUrgency.imminent);
-      },
+  group('inProgress', () {
+    const cleared = RoundHistoryEntry(
+      roundId: 'ppt',
+      result: RoundResult.cleared,
+    );
+    const invited = RoundHistoryEntry(
+      roundId: 'ppt',
+      result: RoundResult.invited,
     );
 
-    test('a completed drive keeps the deadline its own urgency', () {
-      final application = DriveApplication(
-        company: company(requirements: [requirement('a')], deadline: future),
-        status: status(completed: ['a']),
-        now: now,
-      );
-      expect(application.urgency, DeadlineUrgency.thisWeek);
-    });
-  });
-
-  group('checklist editability', () {
-    test('stays editable while open', () {
+    test('true when active with at least one cleared round', () {
       expect(
-        checklistEditable(CompanyStatus.registrationOpen, future, now: now),
+        DriveApplication(
+          company: company(),
+          status: status(history: const [cleared]),
+          now: now,
+        ).isInProgress,
         isTrue,
       );
     });
 
+    test('false with no cleared round', () {
+      expect(
+        DriveApplication(
+          company: company(),
+          status: status(history: const [invited]),
+          now: now,
+        ).isInProgress,
+        isFalse,
+      );
+    });
+
+    test('false when opted out or no longer active', () {
+      expect(
+        DriveApplication(
+          company: company(),
+          status: status(optedIn: false, history: const [cleared]),
+          now: now,
+        ).isInProgress,
+        isFalse,
+      );
+      expect(
+        DriveApplication(
+          company: company(),
+          status: status(
+            overall: OverallStatus.selected,
+            history: const [cleared],
+          ),
+          now: now,
+        ).isInProgress,
+        isFalse,
+      );
+    });
+  });
+
+  group('companyStage priority', () {
+    test('1 closed beats everything below it', () {
+      expect(
+        companyStage(
+          company(
+            status: CompanyStatus.closed,
+            rounds: [round('oa', 1, RoundType.oa)],
+            deadline: future,
+          ),
+          now: now,
+        ),
+        'Drive closed',
+      );
+    });
+
+    test('2 results declared beats rounds and deadline', () {
+      expect(
+        companyStage(
+          company(
+            status: CompanyStatus.resultsDeclared,
+            rounds: [round('oa', 1, RoundType.oa)],
+            deadline: future,
+          ),
+          now: now,
+        ),
+        'Results declared',
+      );
+    });
+
+    test('3 the highest-order round wins over the deadline', () {
+      expect(
+        companyStage(
+          company(
+            rounds: [
+              round('ppt', 1, RoundType.ppt, name: 'Pre-placement talk'),
+              round('oa', 2, RoundType.oa, name: 'Online assessment'),
+            ],
+            deadline: past,
+          ),
+          now: now,
+        ),
+        'Online assessment scheduled',
+      );
+    });
+
+    test('3 interviews read as announced, other types stay unsuffixed', () {
+      expect(
+        companyStage(
+          company(
+            rounds: [
+              round('tr', 1, RoundType.interview, name: 'Technical Round 1'),
+            ],
+          ),
+          now: now,
+        ),
+        'Technical Round 1 announced',
+      );
+      expect(
+        companyStage(
+          company(
+            rounds: [round('doc', 1, RoundType.other, name: 'Document check')],
+          ),
+          now: now,
+        ),
+        'Document check',
+      );
+    });
+
+    test('3 a name that already reads as a phrase is not suffixed again', () {
+      expect(
+        companyStage(
+          company(rounds: [round('oa', 1, RoundType.oa, name: 'OA scheduled')]),
+          now: now,
+        ),
+        'OA scheduled',
+      );
+    });
+
+    test('4 no rounds and a passed deadline reads as registration closed', () {
+      expect(
+        companyStage(company(deadline: past), now: now),
+        'Registration closed',
+      );
+    });
+
+    test('5 no rounds and a future deadline reads as registration open', () {
+      expect(
+        companyStage(company(deadline: future), now: now),
+        'Registration open',
+      );
+      expect(companyStage(company(), now: now), 'Registration open');
+    });
+  });
+
+  group('outcome tag priority', () {
+    test('selected outranks everything', () {
+      expect(
+        outcomeTag(
+          overallStatus: OverallStatus.selected,
+          companyStatus: CompanyStatus.closed,
+        ),
+        DriveOutcomeTag.selected,
+      );
+    });
+
+    test('rejected outranks a closed drive', () {
+      expect(
+        outcomeTag(
+          overallStatus: OverallStatus.rejected,
+          companyStatus: CompanyStatus.closed,
+        ),
+        DriveOutcomeTag.rejected,
+      );
+    });
+
+    test('a closed drive with an active student is the third branch', () {
+      expect(
+        outcomeTag(
+          overallStatus: OverallStatus.active,
+          companyStatus: CompanyStatus.closed,
+        ),
+        DriveOutcomeTag.driveClosed,
+      );
+    });
+
+    test('an ordinary open drive has no tag', () {
+      expect(
+        outcomeTag(
+          overallStatus: OverallStatus.active,
+          companyStatus: CompanyStatus.registrationOpen,
+        ),
+        DriveOutcomeTag.none,
+      );
+    });
+  });
+
+  group('priority bump', () {
+    test('an outstanding step lifts a five day deadline to the coral band', () {
+      expect(deadlineUrgency(future, now: now), DeadlineUrgency.thisWeek);
+      expect(
+        DriveApplication(
+          company: company(requirements: [requirement('a')], deadline: future),
+          status: status(),
+          now: now,
+        ).urgency,
+        DeadlineUrgency.imminent,
+      );
+    });
+
+    test('a completed drive keeps the deadline its own urgency', () {
+      expect(
+        DriveApplication(
+          company: company(requirements: [requirement('a')], deadline: future),
+          status: status(completed: ['a']),
+          now: now,
+        ).urgency,
+        DeadlineUrgency.thisWeek,
+      );
+    });
+
+    test('an outcome tag mutes the rail entirely', () {
+      expect(
+        DriveApplication(
+          company: company(requirements: [requirement('a')], deadline: future),
+          status: status(overall: OverallStatus.selected),
+          now: now,
+        ).urgency,
+        DeadlineUrgency.passed,
+      );
+    });
+
+    test('opting out suppresses the bump but keeps the checklist editable', () {
+      final application = DriveApplication(
+        company: company(requirements: [requirement('a')], deadline: future),
+        status: status(optedIn: false),
+        now: now,
+      );
+      expect(application.urgency, DeadlineUrgency.thisWeek);
+      expect(application.isEditable, isTrue);
+      expect(application.needsAction, isFalse);
+    });
+  });
+
+  group('checklist editability', () {
     test('locks once closed or past the deadline', () {
       expect(
         checklistEditable(CompanyStatus.closed, future, now: now),
@@ -249,20 +459,65 @@ void main() {
         checklistEditable(CompanyStatus.inProgress, past, now: now),
         isFalse,
       );
-    });
-
-    test('an opted-out student can still edit the checklist', () {
-      final application = DriveApplication(
-        company: company(requirements: [requirement('a')], deadline: future),
-        status: status(optedIn: false),
-        now: now,
+      expect(
+        checklistEditable(CompanyStatus.registrationOpen, future, now: now),
+        isTrue,
       );
-      expect(application.isEditable, isTrue);
-      expect(application.needsAction, isFalse);
     });
   });
 
-  group('filters', () {
+  group('Indian digit grouping', () {
+    test('groups the documented examples', () {
+      expect(groupIndian('800000'), '8,00,000');
+      expect(groupIndian('1234567'), '12,34,567');
+      expect(groupIndian('45000'), '45,000');
+    });
+
+    test('only reformats runs of five or more digits', () {
+      expect(formatAmounts('1234'), '1234');
+      expect(formatAmounts('45000'), '45,000');
+    });
+
+    test('leaves surrounding text and shorthand untouched', () {
+      expect(formatAmounts('12 LPA'), '12 LPA');
+      expect(formatAmounts('80k per month'), '80k per month');
+      expect(formatAmounts('Rs 800000 per year'), 'Rs 8,00,000 per year');
+    });
+
+    test('handles an absent value', () {
+      expect(formatAmounts(null), '');
+      expect(formatAmounts(''), '');
+    });
+  });
+
+  group('stipend period append', () {
+    test('appends when monthly and no month wording is present', () {
+      expect(formatStipend('40000', StipendPeriod.monthly), '40,000 / month');
+    });
+
+    test('never double appends when the string already says month', () {
+      expect(
+        formatStipend('40000 per month', StipendPeriod.monthly),
+        '40,000 per month',
+      );
+      expect(
+        formatStipend('40000/month', StipendPeriod.monthly),
+        '40,000/month',
+      );
+      expect(formatStipend('45000 pm', StipendPeriod.monthly), '45,000 pm');
+    });
+
+    test('does not append for total or unspecified', () {
+      expect(formatStipend('300000', StipendPeriod.total), '3,00,000');
+      expect(formatStipend('300000', StipendPeriod.unspecified), '3,00,000');
+    });
+
+    test('an absent stipend stays empty', () {
+      expect(formatStipend(null, StipendPeriod.monthly), '');
+    });
+  });
+
+  group('tabs', () {
     final open = company(requirements: [requirement('a')], deadline: future);
     final closed = company(
       requirements: [requirement('a')],
@@ -282,33 +537,12 @@ void main() {
       );
     });
 
-    test('Tracking drops only explicit opt-outs', () {
-      expect(
-        matchesFilter(
-          filter: DriveFilter.tracking,
-          company: open,
-          status: status(optedIn: false),
-          now: now,
-        ),
-        isFalse,
-      );
-      expect(
-        matchesFilter(
-          filter: DriveFilter.tracking,
-          company: open,
-          status: null,
-          now: now,
-        ),
-        isTrue,
-      );
-    });
-
     test('Action needed matches the derived flag', () {
       expect(
         matchesFilter(
           filter: DriveFilter.actionNeeded,
           company: open,
-          status: status(),
+          status: null,
           now: now,
         ),
         isTrue,
@@ -324,12 +558,58 @@ void main() {
       );
     });
 
-    test('Closed covers both an explicit status and a passed deadline', () {
+    test('In progress needs a cleared round', () {
+      expect(
+        matchesFilter(
+          filter: DriveFilter.inProgress,
+          company: open,
+          status: status(
+            history: const [
+              RoundHistoryEntry(roundId: 'ppt', result: RoundResult.cleared),
+            ],
+          ),
+          now: now,
+        ),
+        isTrue,
+      );
+      expect(
+        matchesFilter(
+          filter: DriveFilter.inProgress,
+          company: open,
+          status: null,
+          now: now,
+        ),
+        isFalse,
+      );
+    });
+
+    test('Selected and Rejected read the personal outcome', () {
+      expect(
+        matchesFilter(
+          filter: DriveFilter.selected,
+          company: open,
+          status: status(overall: OverallStatus.selected),
+          now: now,
+        ),
+        isTrue,
+      );
+      expect(
+        matchesFilter(
+          filter: DriveFilter.rejected,
+          company: open,
+          status: status(overall: OverallStatus.rejected),
+          now: now,
+        ),
+        isTrue,
+      );
+    });
+
+    test('Closed reads the drive, not the student outcome', () {
       expect(
         matchesFilter(
           filter: DriveFilter.closed,
           company: closed,
-          status: null,
+          status: status(overall: OverallStatus.selected),
           now: now,
         ),
         isTrue,
@@ -345,16 +625,24 @@ void main() {
       );
     });
 
-    test('applyFilter narrows the list by company id', () {
-      final result = applyFilter(
-        filter: DriveFilter.actionNeeded,
-        companies: [open],
-        statusesByCompanyId: {
-          'c1': status(completed: ['a']),
-        },
-        now: now,
+    test('a passed deadline alone does not mean closed', () {
+      expect(
+        matchesFilter(
+          filter: DriveFilter.closed,
+          company: company(deadline: past),
+          status: null,
+          now: now,
+        ),
+        isFalse,
       );
-      expect(result, isEmpty);
+    });
+
+    test('empty state headlines', () {
+      expect(emptyStateHeadline(DriveFilter.actionNeeded), "You're caught up.");
+      expect(
+        emptyStateHeadline(DriveFilter.selected),
+        'Nothing yet — keep at it.',
+      );
     });
   });
 }

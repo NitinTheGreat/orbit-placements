@@ -240,15 +240,14 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
           children: [
             const SizedBox(height: 60),
             OrbitEmptyState(
-              icon: _filter == DriveFilter.actionNeeded
-                  ? Icons.check_circle_outline
-                  : Icons.filter_list_off,
-              headline: _filter == DriveFilter.actionNeeded
-                  ? "You're caught up"
-                  : 'Nothing here',
-              guidance: _filter == DriveFilter.actionNeeded
-                  ? ''
-                  : 'No drives match this filter yet.',
+              icon: switch (_filter) {
+                DriveFilter.actionNeeded => Icons.check_circle_outline,
+                DriveFilter.selected => Icons.emoji_events_outlined,
+                DriveFilter.closed => Icons.lock_outline,
+                _ => Icons.filter_list_off,
+              },
+              headline: emptyStateHeadline(_filter),
+              guidance: '',
             ),
           ],
         ),

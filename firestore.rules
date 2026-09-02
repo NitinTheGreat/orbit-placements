@@ -60,7 +60,7 @@ service cloud.firestore {
         && statusId == request.auth.uid + '_' + request.resource.data.companyId
         && request.resource.data.keys().hasOnly(
              ['studentId', 'companyId', 'optedIn', 'completedRequirementIds',
-              'updatedAt', 'source']);
+              'updatedAt']);
 
       allow update: if isVitStudent()
         && resource.data.studentId == request.auth.uid

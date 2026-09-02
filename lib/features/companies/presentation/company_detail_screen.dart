@@ -5,13 +5,14 @@ import '../../../core/routing/app_routes.dart';
 import '../../../core/session/session_controller.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/widgets/orbit_notice.dart';
-import '../../../core/widgets/status_chip.dart';
 import '../../../core/widgets/urgency_rail.dart';
 import '../../../models/application_status.dart';
 import '../../../models/company.dart';
 import '../../../models/student_company_status.dart';
 import '../../../services/firestore_service.dart';
 import 'company_format.dart';
+import 'currency_format.dart';
+import 'widgets/stage_pill.dart';
 import 'widgets/requirements_checklist.dart';
 
 class CompanyDetailScreen extends StatefulWidget {
@@ -137,7 +138,7 @@ class _DetailBody extends StatelessWidget {
         const SizedBox(height: OrbitSpacing.lg),
         Align(
           alignment: Alignment.centerLeft,
-          child: StatusChip(status: company.status),
+          child: StagePill(application: application),
         ),
         const SizedBox(height: OrbitSpacing.xl),
         _TrackingToggle(
@@ -151,8 +152,11 @@ class _DetailBody extends StatelessWidget {
         _Section(
           title: 'The offer',
           children: [
-            _Fact(label: 'CTC', value: company.ctc),
-            _Fact(label: 'Stipend', value: company.stipend),
+            _Fact(label: 'CTC', value: formatAmounts(company.ctc)),
+            _Fact(
+              label: 'Stipend',
+              value: formatStipend(company.stipend, company.stipendPeriod),
+            ),
           ],
         ),
         const SizedBox(height: OrbitSpacing.xl),
