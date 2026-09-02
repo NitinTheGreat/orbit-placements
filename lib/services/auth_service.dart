@@ -18,6 +18,30 @@ class SignInCancelled implements Exception {
   const SignInCancelled();
 }
 
+String describeWebSignInFailure(String code, String? message) {
+  final detail = (message ?? '').toLowerCase();
+
+  if (code == 'unauthorized-domain' || detail.contains('redirect_uri_mismatch')) {
+    return
+        'Google sign-in is misconfigured for the web app. The OAuth client is '
+        'missing its authorized redirect URI '
+        'https://orbit-507316.firebaseapp.com/__/auth/handler. Add it back in '
+        'Google Cloud console credentials, alongside any others already there.';
+  }
+
+  if (code == 'operation-not-allowed') {
+    return
+        'Google sign-in is switched off for this Firebase project. Enable the '
+        'Google provider in Firebase Authentication.';
+  }
+
+  if (code == 'popup-blocked') {
+    return 'Your browser blocked the sign-in popup. Allow popups and retry.';
+  }
+
+  return message ?? 'Google sign-in failed. Please try again.';
+}
+
 class AuthService {
   AuthService({FirebaseAuth? auth, GoogleSignIn? googleSignIn})
     : _auth = auth ?? FirebaseAuth.instance,
@@ -118,9 +142,7 @@ class AuthService {
           error.code == 'cancelled-popup-request') {
         throw const SignInCancelled();
       }
-      throw AuthException(
-        error.message ?? 'Google sign-in failed. Please try again.',
-      );
+      throw AuthException(describeWebSignInFailure(error.code, error.message));
     }
 
     final user = userCredential.user;
