@@ -9,6 +9,7 @@ from .attachments import extract_text, is_supported
 from .cleaning import clean_body, content_hash
 from .matching import find_identifier, sender_allowed
 from .state import IngestionState, halt
+from .stipend import UNSPECIFIED, infer_stipend_period
 from .store import (
     Deps,
     build_requirements,
@@ -83,6 +84,17 @@ def make_llm_extract(deps: Deps):
     return llm_extract
 
 
+def _stipend_period(company_info: dict[str, Any], existing: dict[str, Any] | None):
+    declared = company_info.get("stipend_period")
+    if declared and declared != UNSPECIFIED:
+        return declared
+    stipend = company_info.get("stipend") or (existing or {}).get("stipend")
+    inferred = infer_stipend_period(stipend)
+    if inferred != UNSPECIFIED:
+        return inferred
+    return (existing or {}).get("stipendPeriod", UNSPECIFIED)
+
+
 def make_company_write(deps: Deps):
     def company_write(state: IngestionState) -> IngestionState:
         now = deps.now()
@@ -119,12 +131,16 @@ def make_company_write(deps: Deps):
         status = (existing or {}).get("status", "registration_open")
         if created_round and status == "registration_open":
             status = "in_progress"
+        signal = extraction.get("drive_status_signal")
+        if signal in ("results_declared", "closed"):
+            status = signal
 
         payload: dict[str, Any] = {
             "name": name,
             "category": company_info.get("category") or (existing or {}).get("category", ""),
             "ctc": company_info.get("ctc") or (existing or {}).get("ctc"),
             "stipend": company_info.get("stipend") or (existing or {}).get("stipend"),
+            "stipendPeriod": _stipend_period(company_info, existing),
             "eligibleBranches": company_info.get("eligible_branches")
             or (existing or {}).get("eligibleBranches", []),
             "eligibilityCriteria": company_info.get("eligibility_criteria")

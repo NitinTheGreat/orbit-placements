@@ -6,7 +6,6 @@ from typing import Any, Iterable
 
 from .slugs import unique_slug
 
-NEOPAT_ID = "neopat"
 LABEL_OVERLAP_THRESHOLD = 0.6
 
 _PUNCTUATION = re.compile(r"[^a-z0-9\s]+")
@@ -73,8 +72,6 @@ def requirement_type(item: dict[str, Any]) -> str:
 
 
 def requirement_id(kind: str, label: str, taken: Iterable[str]) -> str:
-    if kind == "neopat":
-        return NEOPAT_ID
     return unique_slug(f"{kind or 'other'} {label}", taken)
 
 
@@ -83,9 +80,6 @@ def find_matching_requirement(
 ) -> dict[str, Any] | None:
     kind = requirement_type(item)
     same_type = [e for e in existing if requirement_type(e) == kind]
-
-    if kind == "neopat":
-        return same_type[0] if same_type else None
 
     incoming_url = normalise_url(item.get("url"))
     if incoming_url:
@@ -178,8 +172,11 @@ def dedupe_requirements(
         current = find_matching_requirement(merged, item)
         if current is None:
             fresh = dict(item)
-            if requirement_type(fresh) == "neopat":
-                fresh["id"] = NEOPAT_ID
+            fresh["id"] = requirement_id(
+                requirement_type(fresh),
+                fresh.get("label", ""),
+                [r["id"] for r in merged],
+            )
             merged.append(fresh)
             continue
         removed.append(item.get("id", ""))

@@ -19,7 +19,11 @@ SYSTEM_PROMPT = (
     "NeoPAT registration; never infer NeoPAT from the fact that this is a "
     "placement drive. Use 'google_form' for a Google Form link, "
     "'company_site' for a registration page on the company's own site, and "
-    "'other' for anything else."
+    "'other' for anything else. Requirements that describe separate actions "
+    "stay separate items, even when both happen on the same portal. "
+    "For stipend_period, read the mail's own wording: 'per month', '/month' "
+    "or 'pm' mean monthly; a lump sum or wording like 'total' or "
+    "'CTC inclusive' means total; anything genuinely unclear is unspecified."
 )
 
 
@@ -46,6 +50,7 @@ class CompanyInfo(BaseModel):
     )
     ctc: str | None = Field(default=None, description="Verbatim, such as '12 LPA'.")
     stipend: str | None = None
+    stipend_period: Literal["monthly", "total", "unspecified"] = "unspecified"
     eligible_branches: list[str] = Field(default_factory=list)
     eligibility_criteria: str | None = None
     registration_deadline: str | None = Field(
@@ -64,6 +69,14 @@ class RequirementInfo(BaseModel):
 class ExtractionResult(BaseModel):
     is_placement_mail: bool = Field(
         description="False when the email is not about a placement drive at all."
+    )
+    drive_status_signal: Literal["results_declared", "closed"] | None = Field(
+        default=None,
+        description=(
+            "Set only when the email clearly states a final selection list or "
+            "that the process has concluded. Leave null otherwise; never infer "
+            "it from the email simply not mentioning the drive's state."
+        ),
     )
     company: CompanyInfo
     round: RoundInfo

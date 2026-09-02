@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from orbit.requirements import (
-    NEOPAT_ID,
     build_requirements,
     dedupe_requirements,
     labels_match,
@@ -19,37 +18,46 @@ def req(kind, label, required=True, url=None):
     return {"type": kind, "label": label, "required": required, "url": url}
 
 
-def test_neopat_id_is_a_constant_regardless_of_wording():
-    a = build_requirements([req("neopat", "Register on NeoPAT")], NOW, "m1")
-    b = build_requirements([req("neopat", "NEO PAT registration")], NOW, "m2")
-    assert a[0]["id"] == b[0]["id"] == NEOPAT_ID
-
-
-def test_reworded_neopat_merges_into_the_existing_one():
-    existing = build_requirements([req("neopat", "Register on NeoPAT")], NOW, "m1")
-    incoming = build_requirements(
-        [req("neopat", "Register on NEO PAT platform")], LATER, "m2"
-    )
-
-    merged, _ = merge_requirements(existing, incoming)
-
-    assert len(merged) == 1
-    assert merged[0]["id"] == NEOPAT_ID
-    assert merged[0]["addedAt"] == NOW
-
-
-def test_several_neopat_mentions_in_one_mail_collapse_to_one():
+def test_neopat_follows_the_same_rule_as_every_other_type():
     built = build_requirements(
         [
-            req("neopat", "Register on NeoPAT"),
-            req("neopat", "Update resume in NeoPAT portal"),
-            req("neopat", "NEO PAT registration"),
+            req("neopat", "Register on NEO PAT platform"),
+            req("neopat", "Update resume with projects in NeoPAT portal"),
+        ],
+        NOW,
+        "m1",
+    )
+    assert len(built) == 2
+    assert [r["id"] for r in built] == [
+        "neopat-register-on-neo-pat-platform",
+        "neopat-update-resume-with-projects-in-neopat-portal",
+    ]
+
+
+def test_two_distinct_neopat_actions_in_one_email_stay_separate():
+    built = build_requirements(
+        [
+            req("neopat", "Register for the drive on NeoPAT"),
+            req("neopat", "Upload your latest resume"),
+            req("neopat", "Accept the offer terms"),
+        ],
+        NOW,
+        "m1",
+    )
+    assert len(built) == 3
+
+
+def test_the_same_neopat_step_repeated_in_one_email_still_collapses():
+    built = build_requirements(
+        [
+            req("neopat", "Register on the NeoPAT portal"),
+            req("neopat", "Register on the NeoPAT portal"),
+            req("neopat", "Register on the NeoPAT portal now"),
         ],
         NOW,
         "m1",
     )
     assert len(built) == 1
-    assert built[0]["id"] == NEOPAT_ID
 
 
 def test_reworded_non_neopat_step_merges_on_label_overlap():
@@ -145,7 +153,7 @@ def test_a_url_less_item_does_not_swallow_a_different_url_bearing_one():
     assert len(merged) == 2
 
 
-def test_backfill_collapses_existing_duplicate_neopat_entries():
+def test_backfill_keeps_distinct_neopat_actions_and_collapses_rewordings():
     stored = [
         {"id": "neopat-register-on-neopat", "type": "neopat",
          "label": "Register on NeoPAT", "url": None, "required": True,
@@ -164,11 +172,12 @@ def test_backfill_collapses_existing_duplicate_neopat_entries():
     merged, removed = dedupe_requirements(stored)
 
     ids = [r["id"] for r in merged]
-    assert ids == [NEOPAT_ID, "company-site-company-registration-form"]
-    assert set(removed) == {
+    assert ids == [
+        "neopat-register-on-neopat",
+        "company-site-company-registration-form",
         "neopat-neo-pat-registration",
-        "company-site-company-registration-link",
-    }
+    ]
+    assert removed == ["company-site-company-registration-link"]
     assert merged[0]["addedAt"] == NOW
 
 
@@ -185,7 +194,7 @@ def test_backfill_is_idempotent():
     assert [r["id"] for r in once] == [r["id"] for r in twice]
 
 
-def test_a_lone_neopat_entry_is_renormalised_to_the_constant_id():
+def test_a_lone_neopat_entry_keeps_its_own_slug_id():
     stored = [
         {"id": "neopat-neo-pat-registration", "type": "neopat",
          "label": "NEO PAT registration", "url": None, "required": True,
@@ -195,5 +204,55 @@ def test_a_lone_neopat_entry_is_renormalised_to_the_constant_id():
     merged, removed = dedupe_requirements(stored)
 
     assert removed == []
-    assert merged[0]["id"] == NEOPAT_ID
+    assert merged[0]["id"] == "neopat-neo-pat-registration"
     assert merged[0]["label"] == "NEO PAT registration"
+
+
+def test_tredence_style_reworded_duplicate_still_merges():
+    existing = build_requirements(
+        [req("other", "Report immediately to CDC office 717")], NOW, "m1"
+    )
+    incoming = build_requirements(
+        [req("other", "Report immediately to CDC office - SJT 717")], LATER, "m2"
+    )
+
+    merged, _ = merge_requirements(existing, incoming)
+
+    assert len(merged) == 1
+    assert merged[0]["addedAt"] == NOW
+
+
+def test_superjoin_style_distinct_steps_survive_a_merge():
+    existing = build_requirements(
+        [req("neopat", "Register on NEO PAT platform")], NOW, "m1"
+    )
+    incoming = build_requirements(
+        [
+            req("neopat", "Register on NEO PAT platform"),
+            req(
+                "neopat",
+                "Update resume with all relevant details and projects in NeoPAT portal",
+            ),
+        ],
+        LATER,
+        "m2",
+    )
+
+    merged, _ = merge_requirements(existing, incoming)
+
+    assert len(merged) == 2
+
+
+def test_stipend_period_inference_on_real_phrasings():
+    from orbit.stipend import infer_stipend_period
+
+    assert infer_stipend_period("80k per month") == "monthly"
+    assert infer_stipend_period("Rs. 50,000/month") == "monthly"
+    assert infer_stipend_period("45000 pm") == "monthly"
+    assert infer_stipend_period("INR 1,00,000 monthly") == "monthly"
+    assert infer_stipend_period("2 lakh total") == "total"
+    assert infer_stipend_period("Lump sum of 300000") == "total"
+    assert infer_stipend_period("6 LPA CTC-inclusive") == "total"
+    assert infer_stipend_period("Refer Attachment") == "unspecified"
+    assert infer_stipend_period("") == "unspecified"
+    assert infer_stipend_period(None) == "unspecified"
