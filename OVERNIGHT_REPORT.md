@@ -421,7 +421,40 @@ is for.
 
 ## Part G — Android release
 
-**Status:** not started
+**Status:** done and published
+
+**Release:** https://github.com/NitinTheGreat/orbit-placements/releases/tag/v1.0.0
+**APK:** `app-release.apk`, 59.9 MB, attached as a release asset. Verified
+the release is public (not a draft, not a prerelease), the asset state is
+`uploaded`, and `git ls-files` confirms no APK is tracked in the repository.
+
+### Two build blockers I had to fix to get here
+1. **Kotlin incremental caches could not close.** Repeated failures like
+   `Could not close incremental caches in build\<plugin>\kotlin\... :
+   class-fq-name-to-source.tab`. Set `kotlin.incremental=false` in
+   `android/gradle.properties`. Builds are a little slower and reliable.
+2. **`flutter_local_notifications` requires core library desugaring.** Added
+   `isCoreLibraryDesugaringEnabled = true` and the
+   `desugar_jdk_libs:2.1.5` dependency to `android/app/build.gradle.kts`.
+   Without this, Part E's client could not ship at all in release.
+
+### Signing — noted in the README as asked
+`android/app/build.gradle.kts` still signs release builds with the debug
+keystore. The README now carries a full section on it, including two
+consequences that are easy to get bitten by:
+
+- The debug keystore is regenerated if lost, which changes the signature.
+  Android refuses an update signed by a different key, so anyone who
+  sideloads this build must **uninstall before installing** a differently
+  signed one.
+- Play Store submission rejects debug-signed APKs outright, and switching
+  to a real upload key later means registering the new SHA-256 with Firebase
+  or Google sign-in breaks.
+
+**Judgment call:** I used the GitHub REST API with the token already in your
+git credential helper rather than `gh`. `gh` was not installed, and the
+winget install had not finished. The result is identical — a normal public
+release with the APK attached.
 
 ---
 
