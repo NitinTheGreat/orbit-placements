@@ -419,6 +419,36 @@ the repository, wire a `signingConfigs.release` reading from a gitignored
 `key.properties`, and register the new SHA-256 with the Firebase project so
 Google sign-in keeps working.
 
+## Web (PWA)
+
+Orbit also builds as a Progressive Web App, live at
+**https://orbit-507316.web.app**. On iPhone, open it in Safari and tap Share
+then Add to Home Screen; on Android, Chrome offers Install.
+
+    flutter build web --release
+    firebase deploy --only hosting --project orbit-507316
+
+Web differs from the native builds in three ways:
+
+- Sign-in uses `signInWithPopup` rather than `google_sign_in`, because the
+  v7 plugin's `authenticate()` is not supported on web. Both paths still
+  enforce the `@vitstudent.ac.in` restriction.
+- The home-screen widget is Android only. `HomeWidgetService.isSupported`
+  returns false on web and the publish call is a no-op.
+- Connecting Gmail for the first time is not wired for web; the hybrid
+  server-side OAuth flow uses `authorizeServer`, which the web plugin does
+  not implement. An account already connected from the Android app works
+  fine on the PWA.
+
+## iOS
+
+`.github/workflows/ios-build.yml` builds on `macos-latest` with
+`flutter build ios --release --no-codesign`, then packages the result as an
+unsigned `.ipa` and uploads it as a build artifact. That artifact can be
+installed with AltStore or Sideloadly, which re-sign it using the installing
+student's own free Apple ID. No Apple Developer Program membership is needed
+on this side.
+
 ## Pending
 
 - Firebase Hosting for the web admin dashboard

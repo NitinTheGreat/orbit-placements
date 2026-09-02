@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:home_widget/home_widget.dart';
 
 import '../features/companies/presentation/widget_feed.dart';
@@ -9,7 +8,8 @@ const String orbitWidgetProvider = 'com.nitin.orbit.OrbitWidgetProvider';
 class HomeWidgetService {
   const HomeWidgetService();
 
-  bool get isSupported => Platform.isAndroid;
+  bool get isSupported =>
+      !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
   Future<void> publish(WidgetFeed feed) async {
     if (!isSupported) {

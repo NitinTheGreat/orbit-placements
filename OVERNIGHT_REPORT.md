@@ -460,7 +460,108 @@ release with the APK attached.
 
 ## Part H — iOS, best effort
 
-**Status:** not started
+**Status:** done, and better than expected — there is a free path that works
+
+### 18. The build compiles — verified, not assumed
+`.github/workflows/ios-build.yml` runs on `macos-latest`, pinned to Flutter
+3.47.2. I pushed it and watched a real run finish green:
+
+**https://github.com/NitinTheGreat/orbit-placements/actions/runs/33598049269**
+
+Every step passed: `flutter pub get`, `flutter analyze`, `flutter test`, and
+`flutter build ios --release --no-codesign`. So the whole iOS target —
+including Firebase, messaging, App Check, url_launcher and fl_chart —
+compiles cleanly against the current Xcode. Deployment target is iOS 15.0,
+which is what `firebase_messaging` requires.
+
+### The good news you were hoping for: sideloading works, free
+Of the two options you raised, **the AltStore / Sideloadly route needs no
+Apple account from you at all**, and I have already made it work.
+
+The workflow now packages the unsigned `.app` into `Payload/` and zips it as
+`orbit-unsigned.ipa`, uploaded as a build artifact. That run produced a real
+one: **18.6 MB**. AltStore and Sideloadly do not need a *pre-signed* ipa —
+they re-sign it on the spot with the **installing student's own free Apple
+ID**. Your side of the equation costs nothing and requires no enrolment.
+
+What each student does: install Sideloadly (or AltStore) on a Windows or Mac
+computer, plug in their iPhone, drag in the ipa, sign in with their own Apple
+ID, install.
+
+The constraint you already identified is the real one and it does not go
+away: **a free Apple ID signature expires after 7 days**, so each student
+must reconnect to a computer and refresh weekly. AltStore's companion app can
+refresh automatically over Wi-Fi if their computer is on the same network and
+running AltServer. A free Apple ID is also capped at 3 sideloaded apps and 10
+app IDs per week.
+
+### 19. What a paid path would actually require — so you can decide fast
+I did not attempt signing or distribution, as instructed. Here is the whole
+decision laid out.
+
+| Path | Cost | What it gets you | The catch |
+| --- | --- | --- | --- |
+| **Sideloading, free Apple ID** (working now) | **Free** | Real native app on any iPhone | 7-day expiry, needs a computer, 3-app cap |
+| **Apple Developer Program, Individual** | **$99/year** | TestFlight: up to 10,000 testers by email or public link, installs straight from the phone, builds last 90 days | Needs a **Mac** for the initial signing setup, or a paid CI service; App Store review applies to TestFlight builds only lightly (Beta App Review), but the account is in your legal name |
+| **Apple Developer Enterprise Program** | $299/year | In-house distribution, no per-device limit | You will not qualify — it requires 100+ employees and a D-U-N-S number. Not an option for a student project. |
+| **PWA** (working now) | **Free** | Installs from Safari, no expiry, no computer, works on Android too | Not a native app: no home-screen widget, no push on iOS Safari unless installed to home screen, and Gmail first-time connect is unwired |
+
+**My recommendation, briefly:** the $99 Individual programme with TestFlight
+is the only thing that removes the 7-day refresh, and it needs a Mac you do
+not have. Given that, the honest ranking for your friends is PWA first
+(zero friction), sideloading for anyone who wants the real app and does not
+mind the weekly refresh.
+
+**If you do go the $99 route**, the order is: enrol as an Individual (needs a
+D-U-N-S only for organisations, not individuals), create an App ID for
+`com.nitin.orbit`, generate a distribution certificate and provisioning
+profile, add an APNs key to Firebase so iOS push works at all, then either
+build on a Mac or add the certificate and profile as GitHub secrets and let
+the existing workflow sign. The workflow is already written; only the signing
+steps would be added.
+
+---
+
+## Part I item 3 — PWA
+
+**Status:** done and live at **https://orbit-507316.web.app**
+
+You said a working PWA was the floor. It is up.
+
+- Web platform added to the project, a Firebase web app registered
+  (`1:206075195473:web:3f2e0773207e6606908870`), and its config wired into
+  `firebase_options.dart`.
+- Installable: manifest with standalone display, the brand navy as theme and
+  background colour, and four icons including maskable variants generated
+  from `logo_final.png`. Apple touch icon and the iOS meta tags are in place
+  so Add to Home Screen looks right on iPhone.
+- The dark navy boot screen carries over from the native splash design, and
+  fades out on `flutter-first-frame`, so there is no white flash before the
+  app paints.
+- Firebase Hosting configured with an SPA rewrite and cache headers that
+  keep `index.html`, the service worker and the manifest uncached while
+  hashed assets get a year.
+
+**Three things I had to change to make web work, all documented in the
+README:**
+1. `google_sign_in` v7's `authenticate()` is not supported on web, so web
+   signs in through `signInWithPopup` with `hd` set to the VIT domain. Both
+   paths still enforce the domain restriction.
+2. `HomeWidgetService` used `dart:io`'s `Platform.isAndroid`, which does not
+   belong in a web build. It now tests `!kIsWeb && defaultTargetPlatform`.
+3. `flutter create --platforms web` regenerated the default
+   `test/widget_test.dart` referencing `MyApp`, which broke analyze. Deleted.
+
+**Verified:** fetched the live site and confirmed `/`, `/manifest.json`,
+`/icons/Icon-512.png` and a deep route all return 200 with the right content
+types and the SPA rewrite working. `orbit-507316.web.app` is in Firebase
+Auth's authorized domains, so the sign-in popup is allowed.
+
+**Known gap, stated plainly:** first-time Gmail connection does not work on
+web. The hybrid server-side OAuth flow calls `authorizeServer`, which the web
+plugin does not implement. An account already connected from the Android app
+works fine on the PWA — which covers you, but not a brand-new user arriving
+on web. Fixing it means a separate web OAuth consent flow.
 
 ---
 

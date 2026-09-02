@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Every VIT placement drive, deadline, and shortlist in one place.">
+  <meta name="theme-color" content="#11152A">
+
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Orbit">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Orbit</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #11152A;
+    }
+    #orbit-boot {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #11152A;
+      transition: opacity 320ms ease;
+    }
+    #orbit-boot img {
+      width: 108px;
+      height: 108px;
+      animation: orbit-settle 900ms cubic-bezier(0.2, 0.9, 0.25, 1.06);
+    }
+    @keyframes orbit-settle {
+      from { transform: scale(0.76) rotate(-4deg); opacity: 0; }
+      to   { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #orbit-boot img { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="orbit-boot"><img src="icons/Icon-maskable-192.png" alt="Orbit"></div>
+
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var boot = document.getElementById('orbit-boot');
+      if (!boot) return;
+      boot.style.opacity = '0';
+      setTimeout(function () { boot.remove(); }, 340);
+    });
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../core/constants/app_config.dart';
@@ -48,6 +49,10 @@ class AuthService {
   }
 
   Future<User> signInWithGoogle() async {
+    if (kIsWeb) {
+      return _signInWithPopup();
+    }
+
     await ensureInitialized();
 
     if (!_googleSignIn.supportsAuthenticate()) {
@@ -98,6 +103,36 @@ class AuthService {
     return user;
   }
 
+  Future<User> _signInWithPopup() async {
+    final provider = GoogleAuthProvider()
+      ..setCustomParameters(<String, String>{
+        'hd': AppConstants.allowedEmailDomain,
+        'prompt': 'select_account',
+      });
+
+    final UserCredential userCredential;
+    try {
+      userCredential = await _auth.signInWithPopup(provider);
+    } on FirebaseAuthException catch (error) {
+      if (error.code == 'popup-closed-by-user' ||
+          error.code == 'cancelled-popup-request') {
+        throw const SignInCancelled();
+      }
+      throw AuthException(
+        error.message ?? 'Google sign-in failed. Please try again.',
+      );
+    }
+
+    final user = userCredential.user;
+    if (user == null || !AppConstants.isAllowedEmail(user.email)) {
+      await signOut();
+      throw AuthException(
+        'Please use your VIT email (@${AppConstants.allowedEmailDomain}).',
+      );
+    }
+    return user;
+  }
+
   Future<bool> hasAdminClaim({bool forceRefresh = false}) async {
     final user = _auth.currentUser;
     if (user == null) {
@@ -108,7 +143,9 @@ class AuthService {
   }
 
   Future<void> signOut() async {
-    await _googleSignIn.signOut();
+    if (!kIsWeb) {
+      await _googleSignIn.signOut();
+    }
     await _auth.signOut();
   }
 }
