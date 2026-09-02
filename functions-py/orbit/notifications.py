@@ -10,6 +10,7 @@ TRIGGER_ACTION_NEEDED = "action_needed"
 TRIGGER_DEADLINE_HOUR = "deadline_hour"
 TRIGGER_ROUND_RESULT = "round_result"
 TRIGGER_NEW_ROUND = "new_round"
+TRIGGER_NEW_COMPANY = "new_company"
 
 NOTIFIED_RESULTS = ("cleared", "rejected", "not_listed")
 URGENT_WINDOW = timedelta(hours=1)
@@ -118,6 +119,35 @@ def _result_copy(name: str, round_name: str, result: str) -> tuple[str, str]:
     if result == "rejected":
         return (f"{name}: not selected", f"The {round_name} result is out.")
     return (f"{name}: not shortlisted", f"You are not on the {round_name} list.")
+
+
+def plan_new_company(
+    company: dict[str, Any] | None, now: datetime
+) -> list[Notification]:
+    if company is None:
+        return []
+    if company.get("status") in ("closed", "results_declared"):
+        return []
+
+    company_id = company.get("id") or ""
+    name = _company_name(company)
+    deadline = _as_datetime(company.get("registrationDeadline"))
+    if deadline is not None and not deadline_in_future(deadline, now):
+        return []
+
+    return [
+        Notification(
+            trigger=TRIGGER_NEW_COMPANY,
+            key=f"{TRIGGER_NEW_COMPANY}:{company_id}",
+            title=f"{name} just opened",
+            body=(
+                "A new drive landed in your placement mail."
+                if deadline is None
+                else "A new drive landed. Check what it needs from you."
+            ),
+            company_id=company_id,
+        )
+    ]
 
 
 def plan_notifications(

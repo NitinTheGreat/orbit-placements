@@ -7,6 +7,7 @@ import '../../companies/presentation/company_list_screen.dart';
 import '../../companies/presentation/drive_filter.dart';
 import '../../profile/presentation/profile_screen.dart';
 import 'home_state.dart';
+import 'widget_nudge.dart';
 import 'widget_refresher.dart';
 
 class HomeDestination {
@@ -67,14 +68,16 @@ class HomeShell extends StatelessWidget {
       valueListenable: homeTabIndex,
       builder: (context, index, _) {
         return Scaffold(
-          body: WidgetRefresher(
-            studentId: SessionScope.of(context).user?.uid,
-            child: IndexedStack(
-              index: index,
-              children: [
-                for (final destination in homeDestinations)
-                  destination.builder(context),
-              ],
+          body: WidgetNudge(
+            child: WidgetRefresher(
+              studentId: SessionScope.of(context).user?.uid,
+              child: IndexedStack(
+                index: index,
+                children: [
+                  for (final destination in homeDestinations)
+                    destination.builder(context),
+                ],
+              ),
             ),
           ),
           bottomNavigationBar: _HomeBar(

@@ -21,8 +21,10 @@ from orbit.config import IngestionConfig, load_config
 from orbit.extraction import GeminiExtractor
 from orbit.firestore_store import FirestoreStore
 from orbit.gmail_client import GmailClient, build_service
-from orbit.notifications import plan_notifications, undelivered
+from orbit.branches import is_confident_mismatch
+from orbit.notifications import plan_new_company, plan_notifications, undelivered
 from orbit.push import send as send_push
+from orbit.push import send_widget_refresh
 from orbit.push import student_tokens, trim_keys
 from orbit.runner import (
     TokenRevoked,
@@ -292,23 +294,23 @@ def _with_id(snapshot) -> dict | None:
     return data
 
 
-def _notify(
+def _suppressed_for_branch(
+    store: FirestoreStore, student_id: str, company: dict | None
+) -> bool:
+    if not company:
+        return False
+    student = store.get_student(student_id) or {}
+    return is_confident_mismatch(
+        student.get("regNo"), company.get("eligibleBranches")
+    )
+
+
+def _deliver(
     store: FirestoreStore,
     student_id: str,
     company_id: str,
-    *,
-    before_status: dict | None,
-    after_status: dict | None,
-    before_company: dict | None,
-    after_company: dict | None,
+    planned: list,
 ) -> None:
-    planned = plan_notifications(
-        before_status=before_status,
-        after_status=after_status,
-        before_company=before_company,
-        after_company=after_company,
-        now=utc_now(),
-    )
     if not planned:
         return
 
@@ -326,6 +328,7 @@ def _notify(
     sent, stale = send_push(tokens, fresh)
     if stale:
         store.drop_fcm_tokens(student_id, stale)
+    send_widget_refresh([t for t in tokens if t not in stale])
     store.put_notified_keys(
         student_id,
         company_id,
@@ -338,6 +341,30 @@ def _notify(
         company_id,
         [n.trigger for n in fresh],
         sent,
+    )
+
+
+def _notify(
+    store: FirestoreStore,
+    student_id: str,
+    company_id: str,
+    *,
+    before_status: dict | None,
+    after_status: dict | None,
+    before_company: dict | None,
+    after_company: dict | None,
+) -> None:
+    _deliver(
+        store,
+        student_id,
+        company_id,
+        plan_notifications(
+            before_status=before_status,
+            after_status=after_status,
+            before_company=before_company,
+            after_company=after_company,
+            now=utc_now(),
+        ),
     )
 
 
@@ -394,8 +421,26 @@ def notifyOnCompanyChange(
     if before is not None:
         before.setdefault("id", company_id)
 
+    is_create = before is None
     store = _store()
+
     for student_id in store.tracked_student_ids():
+        if _suppressed_for_branch(store, student_id, after):
+            logger.info(
+                "notify_suppressed_off_branch student=%s company=%s",
+                student_id,
+                company_id,
+            )
+            continue
+
+        if is_create:
+            _deliver(
+                store,
+                student_id,
+                company_id,
+                plan_new_company(after, utc_now()),
+            )
+
         status = store.get_status(student_id, company_id)
         _notify(
             store,

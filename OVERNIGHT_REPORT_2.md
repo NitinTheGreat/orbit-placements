@@ -258,7 +258,78 @@ production. 277 Dart tests, analyze clean.
 
 ## Part D — new-company notifications, widget refresh, widget nudge
 
-**Status:** not started
+**Status:** done and deployed
+
+### 9. New-company trigger — done, reusing the existing fan-out
+`notifyOnCompanyChange` already fanned out over students from last night, so
+I added a create branch to it rather than a second function, as asked.
+`before is None` distinguishes a create from an update.
+
+The branch gate is applied **once per student at the top of the fan-out**,
+so it covers both the new-company notification and every existing trigger —
+a student who is a confident mismatch now gets nothing at all from that
+drive, not just no new-company alert. Ambiguous and unknown still notify,
+exactly as Part B's rule.
+
+`plan_new_company` refuses to fire for a drive that arrives already closed
+or results-declared, or whose deadline has already passed — an ingested
+backlog should not produce a burst of "just opened" alerts for dead drives.
+Its dedup key is the company id, so it can only ever fire once.
+
+### 10. Silent widget refresh — done
+Every notification delivery now also sends a data-only FCM message
+(`{"orbitAction": "refreshWidget"}`, Android high priority, APNS
+`content-available`) to the same tokens, minus any FCM reported as dead.
+
+On the client, `orbitBackgroundMessageHandler` is a top-level
+`@pragma('vm:entry-point')` handler registered through
+`FirebaseMessaging.onBackgroundMessage`. It initialises Firebase in the
+background isolate, reads the signed-in uid from persisted auth, refetches
+companies and that student's statuses, and republishes the widget. A
+foreground listener does the same thing when the app happens to be open.
+
+**Correction to last night's report, and a wording note:** you referred to
+`registerBackgroundCallback`. That home_widget API is for *widget
+interactions* (taps on the widget), not for FCM. The thing that wakes on a
+data message is FCM's own background handler, so that is what I used. The
+outcome is the one you wanted — the widget updates without the app being
+opened — but via the correct entry point.
+
+### 11. Widget nudge — done, and it needed less native code than expected
+
+**Research finding:** no custom platform channel was needed.
+`home_widget` 0.9.3 already exposes all three pieces, which I confirmed by
+reading its Kotlin plugin source rather than its README:
+
+- `isRequestPinWidgetSupported()` — whether the OS and launcher support the
+  real pin flow (API 26+ and a launcher that implements it)
+- `requestPinWidget(qualifiedAndroidName:)` — triggers the OS's genuine
+  add-to-home-screen dialog
+- `getInstalledWidgets()` — install state, backed by AppWidgetManager
+
+So the prompt calls the real OS flow where supported and falls back to
+written instructions where it is not, and install detection is real rather
+than inferred.
+
+Frequency logic is pure and in `widget_prompt.dart`: shows on opens 3, 6, 9,
+12, 15 and then never again; stops immediately if the widget is installed;
+and there is a "Do not ask again" that is honoured permanently. Counters
+live in `shared_preferences`.
+
+**Judgment call:** I added the permanent dismissal, which you did not ask
+for. Five prompts is the cap, but a student who has decided no should be
+able to say so once rather than being asked four more times.
+
+**Verified:** 11 Dart tests pinning the exact sequence `[3, 6, 9, 12, 15]`,
+the cap boundary at exactly five, install-wins-over-count, and the
+permanent dismissal. 10 new Python tests for the new-company plan and the
+fan-out gate. 286 Dart tests, 222 Python tests, analyze clean. Ingestion
+functions deployed.
+
+**Not verified:** the pin dialog, the nudge sheet, and the background
+refresh have not been exercised on a device. The background handler in
+particular can only really be proven by installing a build and sending a
+notification.
 
 ---
 

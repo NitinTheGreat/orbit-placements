@@ -317,3 +317,67 @@ def test_outstanding_ids_ignore_optional_items():
     assert outstanding_required_ids(
         company(), status(completedRequirementIds=["form", "neopat"])
     ) == []
+
+
+class TestNewCompany:
+    def test_a_new_open_drive_notifies(self):
+        from orbit.notifications import TRIGGER_NEW_COMPANY, plan_new_company
+
+        planned = plan_new_company(company(), NOW)
+        assert [n.trigger for n in planned] == [TRIGGER_NEW_COMPANY]
+        assert planned[0].title == "Rubrik just opened"
+        assert planned[0].key == "new_company:company-1"
+
+    def test_a_closed_drive_never_notifies(self):
+        from orbit.notifications import plan_new_company
+
+        assert plan_new_company(company(status="closed"), NOW) == []
+        assert plan_new_company(company(status="results_declared"), NOW) == []
+
+    def test_a_drive_whose_deadline_has_passed_never_notifies(self):
+        from orbit.notifications import plan_new_company
+
+        passed = company(registrationDeadline=NOW - timedelta(days=1))
+        assert plan_new_company(passed, NOW) == []
+
+    def test_a_drive_with_no_deadline_still_notifies(self):
+        from orbit.notifications import plan_new_company
+
+        planned = plan_new_company(company(registrationDeadline=None), NOW)
+        assert len(planned) == 1
+        assert planned[0].body == "A new drive landed in your placement mail."
+
+    def test_a_missing_company_notifies_nothing(self):
+        from orbit.notifications import plan_new_company
+
+        assert plan_new_company(None, NOW) == []
+
+    def test_the_key_is_stable_so_it_never_repeats(self):
+        from orbit.notifications import plan_new_company, undelivered
+
+        planned = plan_new_company(company(), NOW)
+        assert undelivered(planned, [planned[0].key]) == []
+
+
+class TestBranchGateForFanOut:
+    keyence = ["B.Tech Mech,EEE,ECE related branches"]
+
+    def test_a_confident_mismatch_is_suppressed(self):
+        from orbit.branches import is_confident_mismatch
+
+        assert is_confident_mismatch("23BCT0098", self.keyence) is True
+
+    def test_an_unknown_code_still_notifies(self):
+        from orbit.branches import is_confident_mismatch
+
+        assert is_confident_mismatch("23BAI0210", self.keyence) is False
+
+    def test_no_eligibility_text_still_notifies(self):
+        from orbit.branches import is_confident_mismatch
+
+        assert is_confident_mismatch("23BCT0098", []) is False
+
+    def test_an_eligible_student_still_notifies(self):
+        from orbit.branches import is_confident_mismatch
+
+        assert is_confident_mismatch("19BMY0042", self.keyence) is False

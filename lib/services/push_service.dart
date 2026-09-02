@@ -1,9 +1,66 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+import '../features/companies/presentation/widget_feed.dart';
+import '../firebase_options.dart';
+import '../models/company.dart';
+import '../models/student_company_status.dart';
+import 'home_widget_service.dart';
+
+const String refreshWidgetAction = 'refreshWidget';
+
+@pragma('vm:entry-point')
+Future<void> orbitBackgroundMessageHandler(RemoteMessage message) async {
+  if (message.data['orbitAction'] != refreshWidgetAction) {
+    return;
+  }
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    await republishWidget();
+  } on Object catch (error) {
+    debugPrint('background widget refresh skipped: $error');
+  }
+}
+
+Future<void> republishWidget() async {
+  const homeWidget = HomeWidgetService();
+  if (!homeWidget.isSupported) {
+    return;
+  }
+
+  final studentId = FirebaseAuth.instance.currentUser?.uid;
+  if (studentId == null) {
+    return;
+  }
+
+  final firestore = FirebaseFirestore.instance;
+  final companies = await firestore.collection('companies').get();
+  final statuses = await firestore
+      .collection('studentCompanyStatus')
+      .where('studentId', isEqualTo: studentId)
+      .get();
+
+  final byCompany = <String, StudentCompanyStatus>{};
+  for (final doc in statuses.docs) {
+    final status = StudentCompanyStatus.fromFirestore(doc);
+    byCompany[status.companyId] = status;
+  }
+
+  await homeWidget.publish(
+    buildWidgetFeed(
+      companies: companies.docs.map(Company.fromFirestore).toList(),
+      statusesByCompanyId: byCompany,
+    ),
+  );
+}
 
 const AndroidNotificationChannel orbitUpdatesChannel = AndroidNotificationChannel(
   'orbit_updates',
@@ -41,6 +98,13 @@ class PushService {
 
     try {
       await _createChannels();
+
+      FirebaseMessaging.onBackgroundMessage(orbitBackgroundMessageHandler);
+      FirebaseMessaging.onMessage.listen((message) {
+        if (message.data['orbitAction'] == refreshWidgetAction) {
+          republishWidget();
+        }
+      });
 
       final settings = await _messaging.requestPermission(
         alert: true,

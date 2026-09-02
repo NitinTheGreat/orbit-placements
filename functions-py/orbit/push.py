@@ -52,6 +52,28 @@ def build_message(token: str, notification: Notification) -> messaging.Message:
     )
 
 
+def build_widget_refresh(token: str) -> messaging.Message:
+    return messaging.Message(
+        token=token,
+        data={"orbitAction": "refreshWidget"},
+        android=messaging.AndroidConfig(priority="high"),
+        apns=messaging.APNSConfig(
+            headers={"apns-priority": "5", "apns-push-type": "background"},
+            payload=messaging.APNSPayload(aps=messaging.Aps(content_available=True)),
+        ),
+    )
+
+
+def send_widget_refresh(tokens: Iterable[str]) -> int:
+    token_list = [t for t in tokens if t]
+    if not token_list:
+        return 0
+    response = messaging.send_each(
+        [build_widget_refresh(token) for token in token_list]
+    )
+    return response.success_count
+
+
 def send(
     tokens: Iterable[str], notifications: Iterable[Notification]
 ) -> tuple[int, list[str]]:
