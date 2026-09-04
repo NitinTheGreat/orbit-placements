@@ -15,6 +15,33 @@ const List<AssistantPreset> assistantPresets = <AssistantPreset>[
   AssistantPreset('new_unreviewed', "New companies I haven't reviewed"),
 ];
 
+String describeAssistantFailure(String code, String? message) {
+  switch (code) {
+    case 'resource-exhausted':
+      return 'You have used up your questions for today. Try again tomorrow.';
+    case 'unauthenticated':
+      return 'Sign in again to ask Orbit.';
+    case 'permission-denied':
+      return 'Ask Orbit is only available to VIT student accounts.';
+    case 'failed-precondition':
+      return message ?? 'Finish setting up your profile first.';
+    case 'invalid-argument':
+      return message ?? 'Orbit could not read that question.';
+    case 'internal':
+    case 'unavailable':
+    case 'deadline-exceeded':
+    case 'unknown':
+      return
+          'Orbit cannot reach the server right now. This is on our side, not '
+          'yours. Please try again in a little while.';
+  }
+  final detail = message?.trim();
+  if (detail == null || detail.isEmpty || detail.toUpperCase() == detail) {
+    return 'Orbit could not answer that right now. Please try again.';
+  }
+  return detail;
+}
+
 class AssistantException implements Exception {
   const AssistantException(this.message, {this.rateLimited = false});
 
@@ -55,7 +82,7 @@ class AssistantService {
       );
     } on FirebaseFunctionsException catch (error) {
       throw AssistantException(
-        error.message ?? 'Orbit could not answer that right now.',
+        describeAssistantFailure(error.code, error.message),
         rateLimited: error.code == 'resource-exhausted',
       );
     }
