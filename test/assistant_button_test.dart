@@ -5,9 +5,20 @@ import 'package:orbit/core/theme/app_tokens.dart';
 import 'package:orbit/features/assistant/presentation/assistant_button.dart';
 import 'package:orbit/services/assistant_service.dart';
 
+class _SlowService extends AssistantService {
+  _SlowService(this.answer);
+
+  final String answer;
+
+  @override
+  Future<AssistantAnswer> ask({String? presetId, String? text}) async {
+    return AssistantAnswer(question: 'What am I missing right now?', answer: answer);
+  }
+}
+
 const Key navBarKey = Key('nav-bar');
 
-Widget harness({double navBarHeight = 64}) {
+Widget harness({double navBarHeight = 64, AssistantService? service}) {
   return MaterialApp(
     theme: AppTheme.light,
     builder: (context, child) => OrbitTheme(
@@ -16,7 +27,7 @@ Widget harness({double navBarHeight = 64}) {
     ),
     home: Scaffold(
       body: const SizedBox.expand(),
-      floatingActionButton: const AssistantButton(),
+      floatingActionButton: AssistantButton(service: service),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: SizedBox(
         key: navBarKey,
@@ -91,14 +102,89 @@ void main() {
     expect(panel.top, greaterThan(0));
   });
 
-  testWidgets('every preset is offered as a chip', (tester) async {
+  testWidgets('every preset is reachable in the chip row', (tester) async {
     await tester.pumpWidget(harness());
     await tester.tap(find.byType(AssistantButton));
     await tester.pumpAndSettle();
 
+    expect(assistantPresets.length, 5);
     for (final preset in assistantPresets) {
+      await tester.scrollUntilVisible(
+        find.text(preset.label),
+        120,
+        scrollable: find.descendant(
+          of: find.byKey(assistantChipsKey),
+          matching: find.byType(Scrollable),
+        ),
+      );
       expect(find.text(preset.label), findsOneWidget);
     }
-    expect(assistantPresets.length, 5);
+  });
+
+  testWidgets('a long answer scrolls while the chips and input stay put', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 480);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final longAnswer = List.generate(
+      60,
+      (i) => 'Line $i of an answer that is far too long for a small screen.',
+    ).join(' ');
+
+    await tester.pumpWidget(harness(service: _SlowService(longAnswer)));
+    await tester.tap(find.byType(AssistantButton));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text(assistantPresets.first.label).first);
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(assistantMessagesKey), findsOneWidget);
+    expect(find.byKey(assistantChipsKey), findsOneWidget);
+    expect(find.byKey(assistantInputKey), findsOneWidget);
+
+    final scrollable = find.descendant(
+      of: find.byKey(assistantMessagesKey),
+      matching: find.byType(Scrollable),
+    );
+    final position = tester.state<ScrollableState>(scrollable).position;
+    expect(
+      position.maxScrollExtent,
+      greaterThan(0),
+      reason: 'the answer must actually overflow for this test to mean anything',
+    );
+
+    final chipsBefore = tester.getRect(find.byKey(assistantChipsKey));
+    final inputBefore = tester.getRect(find.byKey(assistantInputKey));
+
+    position.jumpTo(position.maxScrollExtent);
+    await tester.pumpAndSettle();
+
+    expect(tester.getRect(find.byKey(assistantChipsKey)), chipsBefore);
+    expect(tester.getRect(find.byKey(assistantInputKey)), inputBefore);
+  });
+
+  testWidgets('the panel never exceeds the screen on a 320x480 device', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 480);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final longAnswer = List.generate(
+      60,
+      (i) => 'Line $i of a very long answer indeed.',
+    ).join(' ');
+
+    await tester.pumpWidget(harness(service: _SlowService(longAnswer)));
+    await tester.tap(find.byType(AssistantButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(assistantPresets.first.label).first);
+    await tester.pumpAndSettle();
+
+    final input = tester.getRect(find.byKey(assistantInputKey));
+    expect(input.bottom, lessThanOrEqualTo(480));
+    expect(input.top, greaterThanOrEqualTo(0));
   });
 }

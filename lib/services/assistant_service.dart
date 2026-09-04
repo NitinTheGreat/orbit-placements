@@ -33,10 +33,11 @@ class AssistantAnswer {
 }
 
 class AssistantService {
-  AssistantService({FirebaseFunctions? functions})
-    : _functions = functions ?? FirebaseFunctions.instance;
+  AssistantService({FirebaseFunctions? functions}) : _injected = functions;
 
-  final FirebaseFunctions _functions;
+  final FirebaseFunctions? _injected;
+
+  FirebaseFunctions get _functions => _injected ?? FirebaseFunctions.instance;
 
   Future<AssistantAnswer> ask({String? presetId, String? text}) async {
     try {

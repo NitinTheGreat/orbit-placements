@@ -421,7 +421,36 @@ exactly three, and I checked each:
 
 ## Part G — Ask Orbit scroll
 
-**Status:** not started
+**Status:** done
+
+The message area is now a `Flexible` + `SingleChildScrollView`, and the panel
+takes a `maxHeight` of 72% of the screen so it can never grow past the
+viewport. The preset chips and the input row sit outside the scroll view and
+stay pinned.
+
+**A second problem the test exposed, which the brief did not mention.** With
+only the message area made scrollable, the panel still overflowed by 80px at
+320x480 — because the five preset chips in a `Wrap` took four rows on a
+narrow screen and consumed the panel before the answer got any space. The
+chips are now a single horizontally-scrolling row, which bounds their height
+to 34px and matches the horizontal filter-chip row already used on the drives
+list. So this is the app's existing pattern, not a new one.
+
+**Also fixed while here:** `AssistantService` reached for
+`FirebaseFunctions.instance` in its constructor, so merely *constructing* one
+threw in a widget test. That handle is now lazy, which is correct anyway —
+building the object should not require Firebase.
+
+**Verified with content that genuinely overflows**, in the same style as the
+nav-overlap test: a 60-line answer at 320x480, asserting
+`maxScrollExtent > 0` first so the test cannot pass vacuously, then that the
+chips' and input's rects are byte-identical before and after scrolling to the
+bottom, and that the input stays on screen. The preset test now scrolls the
+chip row rather than assuming every chip is laid out, since a lazy horizontal
+list only builds what is visible.
+
+**Verified:** 7 widget tests, 398 Dart tests, 288 Python tests, analyze clean.
+**Assumed:** not seen on a device.
 
 ---
 

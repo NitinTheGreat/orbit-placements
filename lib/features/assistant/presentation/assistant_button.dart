@@ -4,6 +4,10 @@ import '../../../core/theme/app_tokens.dart';
 import '../../../core/widgets/pressable.dart';
 import '../../../services/assistant_service.dart';
 
+const Key assistantMessagesKey = Key('assistant-messages');
+const Key assistantChipsKey = Key('assistant-chips');
+const Key assistantInputKey = Key('assistant-input');
+
 const double assistantButtonSize = 52;
 const double assistantButtonInset = OrbitSpacing.lg;
 
@@ -112,13 +116,16 @@ class _AssistantPanelState extends State<AssistantPanel> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = OrbitTheme.of(context);
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final media = MediaQuery.of(context);
+    final bottomInset = media.viewInsets.bottom;
+    final maxPanelHeight = media.size.height * 0.72;
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Container(
         margin: const EdgeInsets.all(OrbitSpacing.md),
         padding: const EdgeInsets.all(OrbitSpacing.lg),
+        constraints: BoxConstraints(maxHeight: maxPanelHeight),
         decoration: BoxDecoration(
           color: colors.surfaceRaised,
           borderRadius: BorderRadius.circular(OrbitRadius.sheet),
@@ -147,91 +154,116 @@ class _AssistantPanelState extends State<AssistantPanel> {
               ],
             ),
             const SizedBox(height: OrbitSpacing.sm),
-            if (_answer == null && _error == null && !_busy)
-              Text(
-                'Orbit answers from your own drives only.',
-                style: theme.textTheme.bodySmall,
-              ),
-            if (_busy)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: OrbitSpacing.lg),
-                child: Row(
+            Flexible(
+              child: SingleChildScrollView(
+                key: assistantMessagesKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    const SizedBox(width: OrbitSpacing.md),
-                    Text('Reading your drives', style: theme.textTheme.bodySmall),
+                    if (_answer == null && _error == null && !_busy)
+                      Text(
+                        'Orbit answers from your own drives only.',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    if (_busy)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: OrbitSpacing.lg,
+                        ),
+                        child: Row(
+                          children: [
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            const SizedBox(width: OrbitSpacing.md),
+                            Text(
+                              'Reading your drives',
+                              style: theme.textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (_error != null)
+                      Container(
+                        margin: const EdgeInsets.only(top: OrbitSpacing.sm),
+                        padding: const EdgeInsets.all(OrbitSpacing.md),
+                        decoration: BoxDecoration(
+                          color: colors.urgentWash,
+                          borderRadius: BorderRadius.circular(
+                            OrbitRadius.control,
+                          ),
+                        ),
+                        child: Text(
+                          _error!,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colors.urgentInk,
+                          ),
+                        ),
+                      ),
+                    if (_answer != null && !_busy) ...[
+                      const SizedBox(height: OrbitSpacing.sm),
+                      Text(
+                        _answer!.question,
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: colors.inkMuted,
+                        ),
+                      ),
+                      const SizedBox(height: OrbitSpacing.sm),
+                      Text(
+                        _answer!.answer,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ],
                   ],
                 ),
               ),
-            if (_error != null)
-              Container(
-                margin: const EdgeInsets.only(top: OrbitSpacing.sm),
-                padding: const EdgeInsets.all(OrbitSpacing.md),
-                decoration: BoxDecoration(
-                  color: colors.urgentWash,
-                  borderRadius: BorderRadius.circular(OrbitRadius.control),
-                ),
-                child: Text(
-                  _error!,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.urgentInk,
-                  ),
-                ),
-              ),
-            if (_answer != null && !_busy) ...[
-              const SizedBox(height: OrbitSpacing.sm),
-              Text(
-                _answer!.question,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: colors.inkMuted,
-                ),
-              ),
-              const SizedBox(height: OrbitSpacing.sm),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 220),
-                child: SingleChildScrollView(
-                  child: Text(_answer!.answer, style: theme.textTheme.bodyMedium),
-                ),
-              ),
-            ],
+            ),
             const SizedBox(height: OrbitSpacing.lg),
-            Wrap(
-              spacing: OrbitSpacing.sm,
-              runSpacing: OrbitSpacing.sm,
-              children: [
-                for (final preset in assistantPresets)
-                  Pressable(
-                    onTap: _busy ? null : () => _ask(presetId: preset.id),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: OrbitSpacing.md,
-                        vertical: OrbitSpacing.sm,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colors.accentWash,
-                        borderRadius: BorderRadius.circular(OrbitRadius.pill),
-                        border: Border.all(color: colors.accentEdge),
-                      ),
-                      child: Text(
-                        preset.label,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colors.accentInk,
-                          fontWeight: FontWeight.w600,
+            SizedBox(
+              key: assistantChipsKey,
+              height: 34,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: assistantPresets.length,
+                separatorBuilder: (context, index) =>
+                    const SizedBox(width: OrbitSpacing.sm),
+                itemBuilder: (context, index) {
+                  final preset = assistantPresets[index];
+                  return Center(
+                    child: Pressable(
+                      onTap: _busy ? null : () => _ask(presetId: preset.id),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: OrbitSpacing.md,
+                          vertical: OrbitSpacing.sm,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.accentWash,
+                          borderRadius: BorderRadius.circular(OrbitRadius.pill),
+                          border: Border.all(color: colors.accentEdge),
+                        ),
+                        child: Text(
+                          preset.label,
+                          maxLines: 1,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colors.accentInk,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                  );
+                },
+              ),
             ),
             const SizedBox(height: OrbitSpacing.md),
             Row(
               children: [
                 Expanded(
                   child: TextField(
+                    key: assistantInputKey,
                     controller: _controller,
                     enabled: !_busy,
                     textInputAction: TextInputAction.send,
