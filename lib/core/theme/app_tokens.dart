@@ -43,55 +43,57 @@ class OrbitColors {
   final Color successInk;
   final Color successWash;
 
+  static const Color seed = Color(0xFFB4823C);
+
   static const OrbitColors light = OrbitColors(
-    surface: Color(0xFFF5F3EF),
-    surfaceRaised: Color(0xFFFCFBF9),
-    surfaceSunken: Color(0xFFEBE7E0),
-    ink: Color(0xFF1A1815),
-    inkMuted: Color(0xFF6B655C),
-    inkFaint: Color(0xFF938C81),
-    border: Color(0xFFE2DDD4),
-    borderStrong: Color(0xFFCFC8BC),
-    accent: Color(0xFFC98A2B),
-    accentContrast: Color(0xFF23180A),
-    accentEdge: Color(0xFFAD741F),
-    accentInk: Color(0xFF7A5214),
-    accentWash: Color(0xFFF7EBD6),
-    urgent: Color(0xFFD65F4C),
-    urgentInk: Color(0xFFB33F2E),
-    urgentWash: Color(0xFFFAE6E2),
-    success: Color(0xFF2F7A5C),
-    successInk: Color(0xFF2A6E53),
-    successWash: Color(0xFFDFEFE7),
+    surface: Color(0xFFF8F7F4),
+    surfaceRaised: Color(0xFFFFFFFF),
+    surfaceSunken: Color(0xFFEFEDE8),
+    ink: Color(0xFF1B1B1F),
+    inkMuted: Color(0xFF56565E),
+    inkFaint: Color(0xFF74747C),
+    border: Color(0xFFE6E3DD),
+    borderStrong: Color(0xFFD2CFC8),
+    accent: Color(0xFF96661B),
+    accentContrast: Color(0xFFFFFFFF),
+    accentEdge: Color(0xFF7E5516),
+    accentInk: Color(0xFF6B4710),
+    accentWash: Color(0xFFF6EEDF),
+    urgent: Color(0xFFB4442F),
+    urgentInk: Color(0xFF93392A),
+    urgentWash: Color(0xFFFBE8E4),
+    success: Color(0xFF2C6B50),
+    successInk: Color(0xFF255B43),
+    successWash: Color(0xFFE3F0E9),
   );
 
   static const OrbitColors dark = OrbitColors(
-    surface: Color(0xFF1A1815),
-    surfaceRaised: Color(0xFF232019),
-    surfaceSunken: Color(0xFF141210),
-    ink: Color(0xFFF5F3EF),
-    inkMuted: Color(0xFFA39B8E),
-    inkFaint: Color(0xFF7A736A),
-    border: Color(0xFF332E26),
-    borderStrong: Color(0xFF453E33),
-    accent: Color(0xFFE0A945),
-    accentContrast: Color(0xFF1A1815),
-    accentEdge: Color(0xFFE0A945),
-    accentInk: Color(0xFFF0D19A),
-    accentWash: Color(0xFF33291A),
-    urgent: Color(0xFFE87A66),
-    urgentInk: Color(0xFFE87A66),
-    urgentWash: Color(0xFF3A241F),
-    success: Color(0xFF4E9E7B),
-    successInk: Color(0xFF5AAD89),
-    successWash: Color(0xFF1C2F27),
+    surface: Color(0xFF131316),
+    surfaceRaised: Color(0xFF1C1D21),
+    surfaceSunken: Color(0xFF25262B),
+    ink: Color(0xFFEAEAEE),
+    inkMuted: Color(0xFFAFB0B8),
+    inkFaint: Color(0xFF85868E),
+    border: Color(0xFF2A2B30),
+    borderStrong: Color(0xFF3A3B41),
+    accent: Color(0xFFD8A75E),
+    accentContrast: Color(0xFF1A1408),
+    accentEdge: Color(0xFFB98A47),
+    accentInk: Color(0xFFEFC98F),
+    accentWash: Color(0xFF2B2519),
+    urgent: Color(0xFFE08272),
+    urgentInk: Color(0xFFF3A99B),
+    urgentWash: Color(0xFF2F1F1D),
+    success: Color(0xFF63AC86),
+    successInk: Color(0xFF8FC9A9),
+    successWash: Color(0xFF18261F),
   );
 }
 
 class OrbitRadius {
-  static const double sheet = 20;
-  static const double card = 18;
-  static const double control = 12;
+  static const double sheet = 24;
+  static const double card = 20;
+  static const double control = 14;
   static const double rail = 3;
   static const double pill = 999;
 }

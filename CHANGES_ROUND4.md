@@ -257,7 +257,89 @@ retroactively corrects it.
 
 ## Part E — colour and typography
 
-**Status:** not started
+**Status: done, measured and verified on device**
+
+### 12. What was actually wrong
+I looked at the shipped screens first. Three things, and the hue was the
+least of them:
+
+1. **Every card carried a hard outline, and action-needed cards got a
+   saturated red one.** A screen of urgent drives became a wall of red-boxed
+   rectangles. This was the single biggest contributor to "harsh".
+2. **Amber was doing six jobs at once** — brand accent, active chip, stage
+   pill wash *and* text, floating button, stat numbers, active nav. Because
+   every card carries a stage pill, the most saturated colour on screen
+   appeared on every single row.
+3. **Three saturated hues co-occurred with no tonal middle ground.** Amber,
+   red and green all at full strength against a warm near-black, and the only
+   other tone available was a border. Hierarchy was carried entirely by
+   outlines, which is why the outlines had to be strong.
+
+So the fix is mostly about **saturation, repetition and elevation**, not
+about picking a different hue.
+
+### 13. What changed
+- **Seed:** `#B4823C`, a muted ochre. Deliberately not the AI-default
+  purple/blue, and deliberately still recognisably Orbit — it keeps the amber
+  identity while the tonal ramp built from it is far lower-chroma than the
+  hand-picked amber it replaces.
+- **Tonal surfaces replace outlines.** Cards are a raised surface with a very
+  soft shadow and **no border at all**. The red urgent border is gone
+  entirely — urgency now reads from the rail and the deadline text, which
+  were always the real signal.
+- **Chips are tonal pills**, no outlines, inactive ones sitting on
+  `surfaceSunken` rather than being outlined boxes.
+- Radii softened (card 18 → 20, sheet 20 → 24, control 12 → 14).
+
+**Semantics are untouched, as instructed.** Urgency still reads red for
+today/imminent, amber for this week, green for distant, muted for passed —
+the same single `urgencyColor` function. Outcomes still read success and
+urgent. Only the specific colour values moved; nothing changed meaning.
+
+Gradients: none added to cards. The splash keeps its existing treatment.
+
+### 14. Typography
+**Space Grotesk → Plus Jakarta Sans** for display and headings, **IBM Plex
+Sans → Inter** for body and UI.
+
+Space Grotesk is a tight, geometric, slightly technical face — it was
+reinforcing the hard-edged feel. Plus Jakarta Sans has rounder terminals and
+a softer bowl, which suits tonal Material surfaces. Inter is the most legible
+UI face at 12–14px and has genuine `tnum`. Display tracking was loosened
+(-0.8 → -0.4) because Jakarta is wider and did not need the same negative
+tracking.
+
+**Tabular figures** kept on `labelMedium`, `labelSmall`, and added to
+`bodyMedium` and `headlineMedium`, so deadlines, CTC figures and the profile
+stat numbers all align.
+
+### 15. Contrast, measured not assumed
+Every text-on-surface pair in both themes, 40 measurements, WCAG AA
+thresholds (4.5 for body text, 3.0 for large/graphical):
+
+    light: 20/20 pass    dark: 20/20 pass    TOTAL FAILURES: 0
+
+**One real failure caught and fixed before shipping.** White on the light
+accent measured **4.22**, under the 4.5 needed for the filled button. I
+computed candidates rather than eyeballing and moved the light accent from
+`#A5711F` to `#96661B`, which measures **4.98**, with `accentEdge` following
+to `#7E5516`.
+
+### 16. Device verification
+`E-list.png`, `E-profile.png`, `E-widget2.png`. The red-outline wall is gone;
+cards read as raised surfaces; chips are quiet; the urgency rail and deadline
+text still carry the signal.
+
+**The widget: updated, not left behind.** It had hardcoded `#11152A` navy and
+three hardcoded text colours. Those are now named resources matching the new
+dark palette (`#1C1D21` surface, `#EFC98F` headline, `#EAEAEE` title,
+`#AFB0B8` subtitle), so on the home screen it reads as an Orbit card rather
+than a differently-coloured island.
+
+**The splash and launcher icon keep the brand navy deliberately.** They are
+the launch identity and share the icon's own artwork; the pixel-matched
+splash-to-curtain handoff verified in the device session depends on that navy
+staying put on both sides.
 
 ---
 

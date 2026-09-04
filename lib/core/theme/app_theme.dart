@@ -9,28 +9,29 @@ class AppTheme {
   static ThemeData get dark => _build(OrbitColors.dark, Brightness.dark);
 
   static TextTheme buildTextTheme(OrbitColors colors) {
-    final display = GoogleFonts.spaceGroteskTextTheme();
-    final body = GoogleFonts.ibmPlexSansTextTheme();
+    final display = GoogleFonts.plusJakartaSansTextTheme();
+    final body = GoogleFonts.interTextTheme();
 
     return TextTheme(
       displaySmall: display.displaySmall?.copyWith(
         fontSize: 34,
         height: 1.1,
-        letterSpacing: -0.8,
+        letterSpacing: -0.4,
         fontWeight: FontWeight.w600,
         color: colors.ink,
       ),
       headlineMedium: display.headlineMedium?.copyWith(
+        fontFeatures: const [FontFeature.tabularFigures()],
         fontSize: 27,
         height: 1.15,
-        letterSpacing: -0.5,
+        letterSpacing: -0.3,
         fontWeight: FontWeight.w600,
         color: colors.ink,
       ),
       headlineSmall: display.headlineSmall?.copyWith(
         fontSize: 22,
         height: 1.2,
-        letterSpacing: -0.3,
+        letterSpacing: -0.2,
         fontWeight: FontWeight.w600,
         color: colors.ink,
       ),
@@ -56,6 +57,7 @@ class AppTheme {
         fontSize: 14.5,
         height: 1.5,
         color: colors.inkMuted,
+        fontFeatures: const [FontFeature.tabularFigures()],
       ),
       bodySmall: body.bodySmall?.copyWith(
         fontSize: 13,
@@ -137,7 +139,6 @@ class AppTheme {
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(OrbitRadius.card),
-          side: BorderSide(color: colors.border),
         ),
       ),
       dividerTheme: DividerThemeData(

@@ -50,11 +50,13 @@ class DriveCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: colors.surfaceRaised,
           borderRadius: BorderRadius.circular(OrbitRadius.card),
-          border: Border.all(
-            color: urgency.isPressing
-                ? colors.urgent.withValues(alpha: 0.45)
-                : colors.border,
-          ),
+          boxShadow: [
+            BoxShadow(
+              color: colors.ink.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Stack(
           children: [
@@ -155,7 +157,6 @@ class NeutralTag extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surfaceSunken,
         borderRadius: BorderRadius.circular(OrbitRadius.pill),
-        border: Border.all(color: colors.border),
       ),
       child: Text(
         label,

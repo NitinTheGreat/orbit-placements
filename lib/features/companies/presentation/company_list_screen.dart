@@ -464,11 +464,8 @@ class _FilterChips extends StatelessWidget {
                   vertical: OrbitSpacing.sm,
                 ),
                 decoration: BoxDecoration(
-                  color: active ? colors.accentWash : colors.surfaceRaised,
-                  borderRadius: BorderRadius.circular(OrbitRadius.control),
-                  border: Border.all(
-                    color: active ? colors.accentEdge : colors.border,
-                  ),
+                  color: active ? colors.accentWash : colors.surfaceSunken,
+                  borderRadius: BorderRadius.circular(OrbitRadius.pill),
                 ),
                 child: Text(
                   filter.label,
