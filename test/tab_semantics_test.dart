@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit/features/companies/presentation/drive_filter.dart';
-import 'package:orbit/models/application_status.dart';
 import 'package:orbit/models/company.dart';
 import 'package:orbit/models/student_company_status.dart';
 
