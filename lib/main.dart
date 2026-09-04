@@ -6,11 +6,14 @@ import 'package:go_router/go_router.dart';
 
 import 'core/constants/app_constants.dart';
 import 'core/routing/app_router.dart';
+import 'core/routing/app_routes.dart';
 import 'core/session/session_controller.dart';
+import 'core/session/session_status.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/app_tokens.dart';
 import 'core/widgets/launch_curtain.dart';
 import 'firebase_options.dart';
+import 'services/notification_route.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -50,10 +53,26 @@ class _OrbitAppState extends State<OrbitApp> {
     super.initState();
     _session = SessionController();
     _router = AppRouter.create(_session);
+    _session.addListener(_openPendingCompany);
+    pendingCompanyId.addListener(_openPendingCompany);
+  }
+
+  void _openPendingCompany() {
+    final companyId = pendingCompanyId.value;
+    if (companyId == null || _session.status != SessionStatus.ready) {
+      return;
+    }
+    pendingCompanyId.value = null;
+    _router.goNamed(
+      AppRoutes.companyDetail,
+      pathParameters: <String, String>{'companyId': companyId},
+    );
   }
 
   @override
   void dispose() {
+    pendingCompanyId.removeListener(_openPendingCompany);
+    _session.removeListener(_openPendingCompany);
     _session.dispose();
     super.dispose();
   }

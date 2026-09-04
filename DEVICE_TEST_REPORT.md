@@ -47,7 +47,60 @@ blocked. I did the work that does not need it — see Parts 1 (build only),
 
 ## Part 2 — What is actually up
 
-**Status:** not started
+**Status: done.** Determined empirically from this machine, not inferred.
+Every later device failure must be classified against this.
+
+| Subsystem | Verdict | Evidence |
+| --- | --- | --- |
+| Firestore read | **WORKING** | streamed 50 company documents |
+| Firestore write | **WORKING** | wrote and deleted a scratch config doc |
+| `syncNow` | **DOWN-DUE-TO-BILLING** | see below |
+| `askOrbit` | **DOWN-DUE-TO-BILLING** | see below |
+| `connectGmail` | **DOWN-DUE-TO-BILLING** | see below |
+| Scheduled ingestion | **DOWN-DUE-TO-BILLING** | Google says so verbatim |
+
+### The callables are serving errors, not auth errors
+A healthy Firebase callable answers an unauthenticated POST with a JSON
+`UNAUTHENTICATED`. All three instead return Google's own HTML error page:
+
+    503 Server Error — The service you requested is not available yet.
+
+Cloud Run's own view of the service is *healthy*:
+
+    RoutesReady:         CONDITION_SUCCEEDED
+    ConfigurationsReady: CONDITION_SUCCEEDED
+    terminalCondition:   Ready / CONDITION_SUCCEEDED
+
+So the revision is fine and deployed; the platform simply will not schedule a
+container. That is the billing-disabled signature, not a code fault.
+
+### Scheduled ingestion is gone, in Google's words
+The two Cloud Scheduler jobs (`reconcileInboxes` every 2 hours,
+`renewGmailWatches` daily) no longer list at all:
+
+    GET cloudscheduler/v1/projects/orbit-507316/locations/us-central1/jobs
+    403 "This API method requires billing to be enabled. Please enable
+         billing on project #orbit-507316 ..."
+
+### Nothing has run since 4 September
+Last log entry from any function:
+
+    connectgmail             2026-09-04T21:19:57Z
+    ingestgmailnotification  2026-09-04T21:14:01Z
+    reconcileinboxes         2026-09-04T20:08:22Z
+    syncnow                  2026-09-04T19:56:30Z
+
+Nothing at all on 5 September. **Ingestion has been stopped for roughly a
+day**, so any new placement mail since then has not been picked up. That
+backlog will be processed once billing is restored and the watch is renewed —
+though note the Gmail watch itself expires on a 7-day cycle, so if billing
+stays off long enough `renewGmailWatches` will miss its window and the
+connection will need re-establishing.
+
+**Consequence for this session:** Ask Orbit, pull-to-refresh and Gmail
+connect *cannot* work on the device no matter what the client does. Those
+items are pre-classified **BLOCKED-BILLING** rather than being chased as
+client bugs.
 
 ---
 

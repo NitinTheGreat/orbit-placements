@@ -12,8 +12,8 @@ import '../firebase_options.dart';
 import '../models/company.dart';
 import '../models/student_company_status.dart';
 import 'home_widget_service.dart';
-
-const String refreshWidgetAction = 'refreshWidget';
+import 'notification_route.dart';
+export 'notification_route.dart' show refreshWidgetAction;
 
 @pragma('vm:entry-point')
 Future<void> orbitBackgroundMessageHandler(RemoteMessage message) async {
@@ -88,6 +88,7 @@ class PushService {
       FlutterLocalNotificationsPlugin();
 
   StreamSubscription<String>? _refreshSubscription;
+  StreamSubscription<RemoteMessage>? _openedSubscription;
   String? _studentId;
 
   Future<void> start(String studentId) async {
@@ -105,6 +106,16 @@ class PushService {
           republishWidget();
         }
       });
+
+      await _openedSubscription?.cancel();
+      _openedSubscription = FirebaseMessaging.onMessageOpenedApp.listen(
+        (message) => rememberTappedCompany(message.data),
+      );
+
+      final launchedBy = await _messaging.getInitialMessage();
+      if (launchedBy != null) {
+        rememberTappedCompany(launchedBy.data);
+      }
 
       final settings = await _messaging.requestPermission(
         alert: true,
@@ -132,6 +143,8 @@ class PushService {
   Future<void> stop() async {
     await _refreshSubscription?.cancel();
     _refreshSubscription = null;
+    await _openedSubscription?.cancel();
+    _openedSubscription = null;
     final studentId = _studentId;
     _studentId = null;
     if (studentId == null) {
