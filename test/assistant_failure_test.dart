@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit/services/assistant_service.dart';
+import 'package:orbit/services/sync_service.dart';
 
 void main() {
   group('assistant failure messages', () {
@@ -36,6 +37,32 @@ void main() {
       expect(
         describeAssistantFailure('something-new', 'The drive you asked about is gone.'),
         'The drive you asked about is gone.',
+      );
+    });
+  });
+
+  group('sync failure messages', () {
+    test('a server outage never shows a raw code', () {
+      final message = describeSyncFailure('internal', 'INTERNAL');
+      expect(message, contains('cannot reach the server'));
+      expect(message, isNot(contains('INTERNAL')));
+    });
+
+    test('unavailable reads the same as internal', () {
+      expect(
+        describeSyncFailure('unavailable', 'UNAVAILABLE'),
+        describeSyncFailure('internal', 'INTERNAL'),
+      );
+    });
+
+    test('an unknown code falls back to sync wording, not assistant wording', () {
+      expect(describeSyncFailure('weird', null), contains('check your mail'));
+    });
+
+    test('a real sentence from the server survives', () {
+      expect(
+        describeSyncFailure('failed-precondition', 'Reconnect Gmail first.'),
+        'Reconnect Gmail first.',
       );
     });
   });

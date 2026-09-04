@@ -1,5 +1,7 @@
 import 'package:cloud_functions/cloud_functions.dart';
 
+import 'callable_failure.dart';
+
 class AssistantPreset {
   const AssistantPreset(this.id, this.label);
 
@@ -16,30 +18,17 @@ const List<AssistantPreset> assistantPresets = <AssistantPreset>[
 ];
 
 String describeAssistantFailure(String code, String? message) {
-  switch (code) {
-    case 'resource-exhausted':
-      return 'You have used up your questions for today. Try again tomorrow.';
-    case 'unauthenticated':
-      return 'Sign in again to ask Orbit.';
-    case 'permission-denied':
-      return 'Ask Orbit is only available to VIT student accounts.';
-    case 'failed-precondition':
-      return message ?? 'Finish setting up your profile first.';
-    case 'invalid-argument':
-      return message ?? 'Orbit could not read that question.';
-    case 'internal':
-    case 'unavailable':
-    case 'deadline-exceeded':
-    case 'unknown':
-      return
-          'Orbit cannot reach the server right now. This is on our side, not '
-          'yours. Please try again in a little while.';
+  if (code == 'resource-exhausted') {
+    return 'You have used up your questions for today. Try again tomorrow.';
   }
-  final detail = message?.trim();
-  if (detail == null || detail.isEmpty || detail.toUpperCase() == detail) {
-    return 'Orbit could not answer that right now. Please try again.';
+  if (code == 'unauthenticated') {
+    return 'Sign in again to ask Orbit.';
   }
-  return detail;
+  if (code == 'permission-denied') {
+    return 'Ask Orbit is only available to VIT student accounts.';
+  }
+  return plainCallableFailure(code, message) ??
+      'Orbit could not answer that right now. Please try again.';
 }
 
 class AssistantException implements Exception {

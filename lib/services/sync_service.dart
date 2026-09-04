@@ -1,5 +1,7 @@
 import 'package:cloud_functions/cloud_functions.dart';
 
+import 'callable_failure.dart';
+
 class SyncException implements Exception {
   const SyncException(this.message);
 
@@ -7,6 +9,11 @@ class SyncException implements Exception {
 
   @override
   String toString() => message;
+}
+
+String describeSyncFailure(String code, String? message) {
+  return plainCallableFailure(code, message) ??
+      'Could not check your mail right now. Pull down to try again.';
 }
 
 class SyncService {
@@ -22,9 +29,7 @@ class SyncService {
           .call<Map<String, dynamic>>(<String, dynamic>{});
       return (result.data['written'] as num?)?.toInt() ?? 0;
     } on FirebaseFunctionsException catch (error) {
-      throw SyncException(
-        error.message ?? 'Could not check your mail right now.',
-      );
+      throw SyncException(describeSyncFailure(error.code, error.message));
     }
   }
 }
