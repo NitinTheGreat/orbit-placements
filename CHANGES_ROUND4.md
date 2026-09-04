@@ -48,7 +48,56 @@ post-recovery.
 
 ## Part A — list race
 
-**Status:** not started
+**Status: done, verified on device**
+
+### 1. Diagnosis — both symptoms, one bug
+
+Confirmed by reading the render path rather than guessing. Since `a4213bb`
+the list rendered a filtered result **as if final while paging was still in
+flight**:
+
+    if (narrowedView && companies.isEmpty && hasMore) -> spinner
+    ...otherwise render `companies`
+
+The spinner only covered the case where the filtered result was *empty*. If
+even one match had arrived, the partial set was rendered as the answer, and
+each subsequent page rebuilt the list longer. That is symptom (a) exactly:
+Action needed showing 2, then 5.
+
+**Symptom (b) is the same bug, not a separate one.** All the chip filters
+share one `CompanyPageController` per screen. Visiting a narrowed tab paged
+the controller to completion; returning to All then rendered all 76 documents,
+where a fresh All had only the first 20. So whether a red-bordered
+action-needed drive appeared in All depended on whether you had previously
+opened a narrowed tab. Intermittent, and entirely explained by the same
+partial-render.
+
+Nothing else contributes: the urgency colour is a pure function of the drive
+and status, and the status stream is stable.
+
+### 2. Fix
+The list now pages to completion **before rendering anything**, for every
+view including All, and shows a loading state until `hasMore` is false.
+Results — or the empty state — are only shown once the set is complete. The
+trailing "loading more" row is gone, because there is never a partial set to
+append to.
+
+**Tradeoff, stated plainly:** All no longer streams in twenty at a time; it
+waits for all 76. At this size that is a sub-second wait and it buys
+correctness. If the collection grows into the thousands this needs revisiting
+— a server-side filtered query rather than client-side filtering over
+everything.
+
+### 3. Device verification
+Action needed captured at 0s, 2s and 5s after opening, then compared
+pixel-by-pixel with the status bar cropped out:
+
+    0s vs 2s: identical=True  changed_pixels=0
+    0s vs 5s: identical=True  changed_pixels=0
+    2s vs 5s: identical=True  changed_pixels=0
+
+Same for All: identical at 0s, 2s and 5s. The list no longer grows underneath
+you. `A-action-*.png`, `A-all-*.png`.
 
 ---
 

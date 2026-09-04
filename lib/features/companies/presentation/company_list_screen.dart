@@ -253,14 +253,22 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
     }
 
     final lock = widget.lock;
-    final narrowedView = lock != null || filter != DriveFilter.all;
-    if (narrowedView && _controller.hasMore) {
+    if (_controller.hasMore) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
           _controller.loadAllRemaining();
         }
       });
+      return const Center(
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(strokeWidth: 2.2),
+        ),
+      );
     }
+
+    final narrowedView = lock != null || filter != DriveFilter.all;
     final loaded = _controller.companies;
     final matched = lock == null
         ? applyFilter(
@@ -279,16 +287,6 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
       statusesByCompanyId: statusesByCompanyId,
       branch: branch,
     );
-
-    if (narrowedView && companies.isEmpty && _controller.hasMore) {
-      return const Center(
-        child: SizedBox(
-          width: 22,
-          height: 22,
-          child: CircularProgressIndicator(strokeWidth: 2.2),
-        ),
-      );
-    }
 
     if (narrowedView && companies.isEmpty) {
       return RefreshIndicator(
@@ -357,23 +355,10 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
           OrbitSpacing.lg,
           OrbitSpacing.xxl,
         ),
-        itemCount: companies.length + (_controller.hasMore ? 1 : 0),
+        itemCount: companies.length,
         separatorBuilder: (context, index) =>
             const SizedBox(height: OrbitSpacing.md),
         itemBuilder: (context, index) {
-          if (index >= companies.length) {
-            return const Padding(
-              padding: EdgeInsets.symmetric(vertical: OrbitSpacing.xl),
-              child: Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2.2),
-                ),
-              ),
-            );
-          }
-
           final company = companies[index];
           final card = DriveCard(
             company: company,
