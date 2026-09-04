@@ -11,8 +11,10 @@ import '../../../models/company.dart';
 import '../../../models/student_company_status.dart';
 import '../../../services/firestore_service.dart';
 import 'company_format.dart';
+import 'application_channel.dart';
 import 'currency_format.dart';
 import 'optimistic_status.dart';
+import 'widgets/drive_card.dart';
 import 'widgets/stage_pill.dart';
 import 'widgets/requirements_checklist.dart';
 
@@ -230,9 +232,15 @@ class _DetailBodyState extends State<_DetailBody> {
           Text(company.category, style: theme.textTheme.bodyMedium),
         ],
         const SizedBox(height: OrbitSpacing.lg),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: StagePill(application: application),
+        Wrap(
+          spacing: OrbitSpacing.sm,
+          runSpacing: OrbitSpacing.xs,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            StagePill(application: application),
+            if (applicationChannel(company.requirements) case final channel?)
+              NeutralTag(label: channel),
+          ],
         ),
         const SizedBox(height: OrbitSpacing.xl),
         _TrackingToggle(

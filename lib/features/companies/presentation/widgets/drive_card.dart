@@ -7,6 +7,7 @@ import '../../../../models/application_status.dart';
 import '../../../../models/branch_eligibility.dart';
 import '../../../../models/company.dart';
 import '../../../../models/student_company_status.dart';
+import '../application_channel.dart';
 import '../company_format.dart';
 import '../currency_format.dart';
 import 'stage_pill.dart';
@@ -40,6 +41,7 @@ class DriveCard extends StatelessWidget {
     final muted =
         offBranch || (deEmphasiseConcluded && application.isConcluded);
     final urgency = muted ? DeadlineUrgency.passed : application.urgency;
+    final channel = applicationChannel(company.requirements);
 
     return Pressable(
       onTap: onTap,
@@ -96,6 +98,7 @@ class DriveCard extends StatelessWidget {
                       children: [
                         StagePill(application: application, dense: true),
                         if (offBranch) const OffBranchTag(),
+                        if (channel != null) NeutralTag(label: channel),
                       ],
                     ),
                     const SizedBox(height: OrbitSpacing.md),
@@ -133,8 +136,10 @@ class DriveCard extends StatelessWidget {
   }
 }
 
-class OffBranchTag extends StatelessWidget {
-  const OffBranchTag({super.key});
+class NeutralTag extends StatelessWidget {
+  const NeutralTag({super.key, required this.label});
+
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -152,13 +157,22 @@ class OffBranchTag extends StatelessWidget {
         border: Border.all(color: colors.border),
       ),
       child: Text(
-        'Not open to your branch',
+        label,
         style: theme.textTheme.labelSmall?.copyWith(
           color: colors.inkMuted,
           fontWeight: FontWeight.w600,
         ),
       ),
     );
+  }
+}
+
+class OffBranchTag extends StatelessWidget {
+  const OffBranchTag({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const NeutralTag(label: 'Not open to your branch');
   }
 }
 

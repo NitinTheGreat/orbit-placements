@@ -261,7 +261,30 @@ live snapshot, 376 Dart tests, analyze clean.
 
 ## Part D — application-channel tag
 
-**Status:** not started
+**Status:** done
+
+`applicationChannel` in
+`lib/features/companies/presentation/application_channel.dart` derives the
+tag from the set of requirement types: one type maps to its own name, more
+than one reads "Multiple steps", and an empty list produces no tag.
+
+**Judgment call you did not specify:** a lone `other` requirement produces
+**no tag** rather than "Multiple steps". `other` is the extractor's "I could
+not classify this", so claiming a channel from it would be inventing one, and
+"Multiple steps" is plainly wrong for a single step. An `other` sitting
+*alongside* a known type still counts toward "Multiple steps", since there
+genuinely is more than one.
+
+Rendered on both the tile and the detail header. **No new palette:** I
+generalised the existing off-branch chip into a shared `NeutralTag`
+(`surfaceSunken` ground, `border`, `inkMuted` text — all already in the token
+set) and reimplemented `OffBranchTag` on top of it, so the two chips cannot
+drift apart. The detail header's single pill became a `Wrap` so the stage
+pill and the channel tag sit side by side and wrap on a narrow screen.
+
+**Verified:** 8 tests covering each single type, a repeated type, mixed
+types, the lone `other`, and the empty list. Analyze clean.
+**Assumed:** not seen rendered.
 
 ---
 
