@@ -1,8 +1,17 @@
 import '../../../models/application_status.dart';
+import '../../../models/branch_eligibility.dart';
 import '../../../models/company.dart';
 import '../../../models/student_company_status.dart';
+import '../../companies/presentation/drive_ordering.dart';
 
-enum DriveOutcomeSlice { actionNeeded, inProgress, selected, rejected, closed }
+enum DriveOutcomeSlice {
+  actionNeeded,
+  inProgress,
+  selected,
+  rejected,
+  closed,
+  tracking,
+}
 
 extension DriveOutcomeSliceLabel on DriveOutcomeSlice {
   String get label => switch (this) {
@@ -11,26 +20,34 @@ extension DriveOutcomeSliceLabel on DriveOutcomeSlice {
     DriveOutcomeSlice.selected => 'Selected',
     DriveOutcomeSlice.rejected => 'Not selected',
     DriveOutcomeSlice.closed => 'Closed',
+    DriveOutcomeSlice.tracking => 'Tracking',
   };
 }
 
-DriveOutcomeSlice? sliceFor(DriveApplication application) {
+DriveOutcomeSlice? sliceFor(DriveApplication application, {BranchInfo? branch}) {
+  final band = driveBand(application, branch: branch);
+  if (band == DriveBand.branchMismatch) {
+    return null;
+  }
   if (application.overallStatus == OverallStatus.selected) {
     return DriveOutcomeSlice.selected;
   }
   if (application.overallStatus == OverallStatus.rejected) {
     return DriveOutcomeSlice.rejected;
   }
-  if (application.needsAction) {
+  if (band == DriveBand.concluded) {
+    return DriveOutcomeSlice.closed;
+  }
+  if (band == DriveBand.actionNeeded) {
     return DriveOutcomeSlice.actionNeeded;
   }
   if (application.isInProgress) {
     return DriveOutcomeSlice.inProgress;
   }
-  if (concludedStatuses.contains(application.company.status)) {
-    return DriveOutcomeSlice.closed;
+  if (application.optedIn == false) {
+    return null;
   }
-  return null;
+  return DriveOutcomeSlice.tracking;
 }
 
 class ProfileStats {
@@ -68,6 +85,7 @@ class ProfileStats {
 ProfileStats profileStats({
   required List<Company> companies,
   required Map<String, StudentCompanyStatus> statusesByCompanyId,
+  BranchInfo? branch,
   DateTime? now,
 }) {
   var tracked = 0;
@@ -83,9 +101,13 @@ ProfileStats profileStats({
       now: now,
     );
 
-    if (status?.optedIn != false) {
-      tracked += 1;
+    final slice = sliceFor(application, branch: branch);
+    if (slice == null) {
+      continue;
     }
+
+    tracked += 1;
+    breakdown[slice] = (breakdown[slice] ?? 0) + 1;
 
     final progress = requiredProgress(
       company.requirements,
@@ -93,11 +115,6 @@ ProfileStats profileStats({
     );
     done += progress.done;
     total += progress.total;
-
-    final slice = sliceFor(application);
-    if (slice != null) {
-      breakdown[slice] = (breakdown[slice] ?? 0) + 1;
-    }
   }
 
   return ProfileStats(

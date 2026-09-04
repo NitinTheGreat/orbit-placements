@@ -94,6 +94,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   final stats = profileStats(
                     companies: _controller.companies,
                     statusesByCompanyId: byCompany,
+                    branch: branch,
                   );
 
                   return ListView(
@@ -225,6 +226,7 @@ class _BreakdownCard extends StatelessWidget {
       DriveOutcomeSlice.selected => colors.success,
       DriveOutcomeSlice.rejected => colors.urgentInk,
       DriveOutcomeSlice.closed => colors.borderStrong,
+      DriveOutcomeSlice.tracking => colors.inkFaint,
     };
   }
 

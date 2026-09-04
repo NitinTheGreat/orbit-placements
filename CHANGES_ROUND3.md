@@ -290,7 +290,69 @@ types, the lone `other`, and the empty list. Analyze clean.
 
 ## Part E — profile screen
 
-**Status:** not started
+**Status:** done
+
+### Confirmed: it was counting the company lifecycle
+Your suspicion was right, and here is the line that did it. `sliceFor` ended:
+
+    if (concludedStatuses.contains(application.company.status)) {
+      return DriveOutcomeSlice.closed;
+    }
+    return null;
+
+So a drive counted as "closed" purely because the *placement cell* had
+wrapped it up, whether or not the student had anything to do with it. And
+anything not matching a slice returned `null` and vanished from the chart
+entirely — which is why a single lopsided "closed" number was all that
+showed.
+
+It was also a **third** implementation path: it called `needsAction`
+directly, so it never applied the branch gate and could disagree with both
+the tabs and the bands.
+
+### Now the student's own state, off Part A's bands
+`sliceFor` takes the branch and reads `driveBand`, so Action needed and
+Closed are by construction the same sets the tabs show. Priority: an actual
+outcome (selected, not selected) first, then the band, then in progress, then
+plain tracking.
+
+Two structural changes so the chart is honest:
+
+- **A new `tracking` slice.** A drive being followed with nothing outstanding
+  used to fall through to `null` and disappear. It now counts, so
+  `breakdownTotal == drivesTracked` and the donut accounts for every drive
+  it claims to.
+- **Off-branch and opted-out drives are excluded**, rather than being
+  counted as tracked. `drivesTracked` is now the number of drives actually in
+  the chart, so the headline number and the chart cannot disagree.
+
+### Real numbers against live data
+Before, at the pinned instant: `tracked 27`, and the chart showed
+`Action needed 7, Closed 4` with 16 drives silently missing.
+
+After:
+
+    tracked 25    steps 0/24
+      Action needed     6
+      In progress       0
+      Selected          0
+      Not selected      0
+      Closed            4
+      Tracking         15
+                       --
+                       25   (adds up to tracked)
+
+Action needed is 6, matching the tab and band exactly. `Tracking 15` is the
+bulk that was previously invisible. In progress is 0 rather than 1 because
+Accenture needed action at that instant and an outstanding step outranks it;
+at today's clock it moves to In progress.
+
+**Verified:** 8 new tests including one asserting the profile's action-needed
+count equals `applyFilter`'s, one that off-branch drives are excluded, and
+one that every counted drive lands in exactly one slice. One older test
+asserting a quiet drive "lands in no slice" was updated — that behaviour is
+what this part deliberately changes. 391 Dart tests, analyze clean.
+**Assumed:** the chart has not been seen rendered.
 
 ---
 

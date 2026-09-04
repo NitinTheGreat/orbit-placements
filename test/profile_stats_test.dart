@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:orbit/features/companies/presentation/drive_filter.dart';
 import 'package:orbit/features/profile/presentation/profile_stats.dart';
+import 'package:orbit/models/branch_eligibility.dart';
 import 'package:orbit/models/company.dart';
 import 'package:orbit/models/student_company_status.dart';
 
@@ -174,13 +175,14 @@ void main() {
       expect(stats.breakdown[DriveOutcomeSlice.closed], 1);
     });
 
-    test('a quiet open drive with nothing to do lands in no slice', () {
+    test('a quiet open drive is counted as simply being tracked', () {
       final stats = profileStats(
         companies: [drive('a', requiredSteps: 0)],
         statusesByCompanyId: const {},
         now: now,
       );
-      expect(stats.breakdownTotal, 0);
+      expect(stats.breakdownTotal, 1);
+      expect(stats.breakdown[DriveOutcomeSlice.tracking], 1);
     });
   });
 
@@ -293,6 +295,91 @@ void main() {
         ),
         isTrue,
       );
+    });
+  });
+
+  group('the breakdown is the student, not the company lifecycle', () {
+    test('every counted drive lands in exactly one slice', () {
+      final stats = profileStats(
+        companies: [drive('a'), drive('b'), drive('c')],
+        statusesByCompanyId: const {},
+        now: now,
+      );
+      expect(stats.breakdownTotal, stats.drivesTracked);
+    });
+
+    test('a tracked drive with nothing to do is counted, not dropped', () {
+      final stats = profileStats(
+        companies: [drive('a', requiredSteps: 0)],
+        statusesByCompanyId: const {},
+        now: now,
+      );
+      expect(stats.breakdown[DriveOutcomeSlice.tracking], 1);
+      expect(stats.drivesTracked, 1);
+    });
+
+    test('an opted-out drive is left out of the chart entirely', () {
+      final stats = profileStats(
+        companies: [drive('a', requiredSteps: 0)],
+        statusesByCompanyId: {'a': status('a', optedIn: false)},
+        now: now,
+      );
+      expect(stats.breakdownTotal, 0);
+      expect(stats.drivesTracked, 0);
+    });
+
+    test('an off-branch drive is left out of the chart entirely', () {
+      final offBranch = Company(
+        id: 'a',
+        name: 'a',
+        category: 'Core',
+        registrationDeadline: now.add(const Duration(days: 3)),
+        eligibleBranches: const ['B.Tech Mech,EEE,ECE related branches'],
+      );
+      final stats = profileStats(
+        companies: [offBranch],
+        statusesByCompanyId: const {},
+        branch: branchForRegNo('23BCT0098'),
+        now: now,
+      );
+      expect(stats.breakdownTotal, 0);
+    });
+
+    test('a results-declared drive counts as closed, like the tab', () {
+      final stats = profileStats(
+        companies: [drive('a', status: CompanyStatus.resultsDeclared)],
+        statusesByCompanyId: const {},
+        now: now,
+      );
+      expect(stats.breakdown[DriveOutcomeSlice.closed], 1);
+    });
+
+    test('a personal outcome still outranks the drive state', () {
+      final stats = profileStats(
+        companies: [drive('a', status: CompanyStatus.resultsDeclared)],
+        statusesByCompanyId: {
+          'a': status('a', overall: OverallStatus.selected),
+        },
+        now: now,
+      );
+      expect(stats.breakdown[DriveOutcomeSlice.selected], 1);
+      expect(stats.breakdown[DriveOutcomeSlice.closed], isNull);
+    });
+
+    test('the action-needed count matches the Action needed tab', () {
+      final companies = [drive('a'), drive('b', requiredSteps: 0)];
+      final stats = profileStats(
+        companies: companies,
+        statusesByCompanyId: const {},
+        now: now,
+      );
+      final tab = applyFilter(
+        filter: DriveFilter.actionNeeded,
+        companies: companies,
+        statusesByCompanyId: const {},
+        now: now,
+      );
+      expect(stats.breakdown[DriveOutcomeSlice.actionNeeded], tab.length);
     });
   });
 }
