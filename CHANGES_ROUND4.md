@@ -171,13 +171,87 @@ still suppressed.
 
 ## Part C — chatbot memory
 
-**Status:** not started
+**Status: done and deployed** (billing came back, so it did not have to stay
+PENDING-DEPLOY as the brief anticipated)
+
+### 7. Conversation history
+`askOrbit` now reads the student's recent exchanges, passes them as prior
+turns, and appends the new one. A follow-up like "what about the second one"
+has the earlier answer to resolve against.
+
+Three independent caps, each tested:
+
+- **6 turns** (`MAX_HISTORY_TURNS`) — oldest dropped first
+- **4000 characters total** (`MAX_HISTORY_CHARS`) — turns dropped from the
+  front until it fits, so six long turns cannot blow up the prompt
+- **1200 characters per stored answer** — a single huge answer is *truncated*
+  rather than dropping the turn, so the thread stays coherent
+
+Malformed history is ignored rather than trusted: non-lists, non-dicts,
+missing or blank or non-string fields all yield an empty history.
+
+### 8. Scoping and rate limit unchanged
+This is the part that mattered most, so it is worth being explicit about what
+did **not** change:
+
+- The rate limit still counts **before** the model call and is untouched at 20
+  per student per UTC day.
+- `statuses_for_student` still filters on the caller's uid; `build_context` is
+  unchanged.
+- History is stored under `assistantUsage/{studentId}`, the same
+  per-student document, which is already behind the catch-all deny in
+  `firestore.rules` — a student can neither read nor write it. The existing
+  rules tests already cover that document.
+
+**History can never widen data reach.** It carries only the student's own
+prior questions and Orbit's own prior answers, and the prompt says explicitly
+that the earlier turns are for resolving references and that CONTEXT is the
+only source of facts. A test asserts that instruction survives alongside a
+history entry that mentions another student's name.
+
+**Verified:** 8 new tests, 36 in the assistant suite, 291 Python overall.
+Deployed to `orbit-507316`.
+
+**Not verified:** no multi-turn conversation has been held against the live
+model. The plumbing and the caps are tested; the model's actual follow-up
+resolution is not.
 
 ---
 
 ## Part D — profile branch-relevant count
 
-**Status:** not started
+**Status: done**
+
+### 10. The stat
+`ProfileStats.branchRelevant` counts drives whose `branchRelevance` is not
+`notOpen` for this student — reusing the existing gate rather than inventing
+a second rule, so it agrees with the sort band and the tabs by construction.
+
+Shown on the profile as **"open to your branch and level"**, beside the
+existing **"drives tracked"**. The two are deliberately different things and
+the labels say so:
+
+- *drives tracked* — how many the student is actually following
+- *open to your branch and level* — how many they are eligible for at all
+
+They move independently: a drive can be relevant but untracked, or tracked but
+off-branch if the student opted in deliberately. A test pins exactly that.
+
+Unknown eligibility counts as relevant, consistent with the safety rule that
+Orbit never suppresses on doubt.
+
+### 11. The behaviour behind it is now live, contrary to the brief's assumption
+The brief expected server-side suppression to still be PENDING-DEPLOY. It is
+**not** — billing was restored at the start of this session and round 3's
+M.Tech and branch gate deployed with it. New mismatched drives no longer
+auto-track.
+
+**But the backlog was auto-tracked while billing was down**, so drives ingested
+in that window are still opted in regardless of branch. The display is correct
+either way; the historic tracking state is not, and nothing in this round
+retroactively corrects it.
+
+**Verified:** 5 new tests, 433 Dart tests.
 
 ---
 

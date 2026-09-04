@@ -53,12 +53,14 @@ DriveOutcomeSlice? sliceFor(DriveApplication application, {BranchInfo? branch}) 
 class ProfileStats {
   const ProfileStats({
     required this.drivesTracked,
+    required this.branchRelevant,
     required this.requirementsDone,
     required this.requirementsTotal,
     required this.breakdown,
   });
 
   final int drivesTracked;
+  final int branchRelevant;
   final int requirementsDone;
   final int requirementsTotal;
   final Map<DriveOutcomeSlice, int> breakdown;
@@ -89,6 +91,7 @@ ProfileStats profileStats({
   DateTime? now,
 }) {
   var tracked = 0;
+  var relevant = 0;
   var done = 0;
   var total = 0;
   final breakdown = <DriveOutcomeSlice, int>{};
@@ -100,6 +103,14 @@ ProfileStats profileStats({
       status: status,
       now: now,
     );
+
+    if (branchRelevance(
+          branch: branch,
+          eligibleBranches: company.eligibleBranches,
+        ) !=
+        BranchRelevance.notOpen) {
+      relevant += 1;
+    }
 
     final slice = sliceFor(application, branch: branch);
     if (slice == null) {
@@ -119,6 +130,7 @@ ProfileStats profileStats({
 
   return ProfileStats(
     drivesTracked: tracked,
+    branchRelevant: relevant,
     requirementsDone: done,
     requirementsTotal: total,
     breakdown: breakdown,

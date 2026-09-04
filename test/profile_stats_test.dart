@@ -382,4 +382,79 @@ void main() {
       expect(stats.breakdown[DriveOutcomeSlice.actionNeeded], tab.length);
     });
   });
+
+  group('branch relevant count', () {
+    Company offBranch(String id) => Company(
+      id: id,
+      name: id,
+      category: 'Core',
+      registrationDeadline: now.add(const Duration(days: 3)),
+      eligibleBranches: const ['B.Tech Mech,EEE,ECE related branches'],
+    );
+
+    Company onBranch(String id) => Company(
+      id: id,
+      name: id,
+      category: 'Core',
+      registrationDeadline: now.add(const Duration(days: 3)),
+      eligibleBranches: const ['B.Tech CSE/IT related branches'],
+    );
+
+    test('counts only drives the branch and level admit', () {
+      final stats = profileStats(
+        companies: [onBranch('a'), onBranch('b'), offBranch('c')],
+        statusesByCompanyId: const {},
+        branch: branchForRegNo('23BCT0098'),
+        now: now,
+      );
+      expect(stats.branchRelevant, 2);
+    });
+
+    test('an M.Tech only drive is not relevant to a B.Tech student', () {
+      final mtech = Company(
+        id: 'm',
+        name: 'm',
+        category: 'Core',
+        registrationDeadline: now.add(const Duration(days: 3)),
+        eligibleBranches: const ['M.Tech CSE & IT related branches'],
+      );
+      final stats = profileStats(
+        companies: [mtech],
+        statusesByCompanyId: const {},
+        branch: branchForRegNo('23BCT0098'),
+        now: now,
+      );
+      expect(stats.branchRelevant, 0);
+    });
+
+    test('an unknown eligibility counts as relevant, never suppressed', () {
+      final stats = profileStats(
+        companies: [drive('a'), drive('b')],
+        statusesByCompanyId: const {},
+        branch: branchForRegNo('23BCT0098'),
+        now: now,
+      );
+      expect(stats.branchRelevant, 2);
+    });
+
+    test('it is independent of tracking, unlike drivesTracked', () {
+      final stats = profileStats(
+        companies: [onBranch('a')],
+        statusesByCompanyId: {'a': status('a', optedIn: false)},
+        branch: branchForRegNo('23BCT0098'),
+        now: now,
+      );
+      expect(stats.branchRelevant, 1);
+      expect(stats.drivesTracked, 0);
+    });
+
+    test('no branch known means everything is relevant', () {
+      final stats = profileStats(
+        companies: [offBranch('a'), onBranch('b')],
+        statusesByCompanyId: const {},
+        now: now,
+      );
+      expect(stats.branchRelevant, 2);
+    });
+  });
 }

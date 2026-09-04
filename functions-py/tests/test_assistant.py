@@ -276,3 +276,80 @@ class TestStoreScoping:
 
         assert recorded["collection"] == "companies"
         assert recorded["limit"] == MAX_COMPANIES_IN_CONTEXT
+
+
+class TestConversationMemory:
+    def test_history_is_capped_to_the_recent_turns(self):
+        from orbit.assistant import MAX_HISTORY_TURNS, trim_history
+
+        raw = [
+            {"question": f"q{i}", "answer": f"a{i}"} for i in range(20)
+        ]
+        kept = trim_history(raw)
+        assert len(kept) == MAX_HISTORY_TURNS
+        assert kept[-1]["question"] == "q19"
+
+    def test_total_size_is_capped_even_with_few_turns(self):
+        from orbit.assistant import MAX_HISTORY_CHARS, trim_history
+
+        raw = [{"question": "q" * 300, "answer": "a" * 1100} for _ in range(6)]
+        kept = trim_history(raw)
+        total = sum(len(t["question"]) + len(t["answer"]) for t in kept)
+        assert total <= MAX_HISTORY_CHARS
+
+    def test_a_single_answer_is_truncated_not_dropped(self):
+        from orbit.assistant import MAX_STORED_ANSWER_CHARS, trim_history
+
+        kept = trim_history([{"question": "q", "answer": "a" * 9000}])
+        assert len(kept) == 1
+        assert len(kept[0]["answer"]) == MAX_STORED_ANSWER_CHARS
+
+    def test_malformed_entries_are_ignored(self):
+        from orbit.assistant import trim_history
+
+        assert trim_history(None) == []
+        assert trim_history("nope") == []
+        assert trim_history([1, "x", {}, {"question": "q"}, {"answer": "a"}]) == []
+        assert trim_history([{"question": "  ", "answer": "a"}]) == []
+        assert trim_history([{"question": "q", "answer": 5}]) == []
+
+    def test_appending_keeps_order_and_cap(self):
+        from orbit.assistant import MAX_HISTORY_TURNS, append_turn
+
+        history = []
+        for i in range(10):
+            history = append_turn(history, f"q{i}", f"a{i}")
+        assert len(history) == MAX_HISTORY_TURNS
+        assert history[-1] == {"question": "q9", "answer": "a9"}
+
+    def test_the_prompt_carries_history_and_still_grounds_on_context(self):
+        from orbit.assistant import build_prompt
+
+        prompt = build_prompt(
+            "what about the second one?",
+            "CONTEXT HERE",
+            [{"question": "what is due?", "answer": "Rubrik and Cisco."}],
+        )
+        assert "EARLIER IN THIS CONVERSATION" in prompt
+        assert "Rubrik and Cisco." in prompt
+        assert "the only source" in prompt
+        assert "CONTEXT HERE" in prompt
+        assert "what about the second one?" in prompt
+
+    def test_no_history_leaves_the_prompt_as_it_was(self):
+        from orbit.assistant import build_prompt
+
+        prompt = build_prompt("what is due?", "CONTEXT HERE", [])
+        assert "EARLIER IN THIS CONVERSATION" not in prompt
+        assert "CONTEXT HERE" in prompt
+
+    def test_history_never_widens_the_data_scope(self):
+        from orbit.assistant import build_prompt
+
+        prompt = build_prompt(
+            "and the other student?",
+            "drives: (no drives)",
+            [{"question": "hi", "answer": "Someone Else 21BCE1234 was selected."}],
+        )
+        assert "the only source" in prompt
+        assert "drives: (no drives)" in prompt

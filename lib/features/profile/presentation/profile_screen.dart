@@ -140,6 +140,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ],
                       ),
                       const SizedBox(height: OrbitSpacing.md),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _StatTile(
+                              value: '${stats.branchRelevant}',
+                              label: 'open to your branch and level',
+                            ),
+                          ),
+                          const SizedBox(width: OrbitSpacing.md),
+                          const Expanded(child: SizedBox.shrink()),
+                        ],
+                      ),
+                      const SizedBox(height: OrbitSpacing.md),
                       _NeoIdCard(
                         neoId: student?.neoId ?? '',
                         canEdit: student?.canEditNeoId ?? false,

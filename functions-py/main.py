@@ -22,6 +22,8 @@ from orbit.extraction import GeminiExtractor
 from orbit.firestore_store import FirestoreStore
 from orbit.gmail_client import GmailClient, build_service
 from orbit.assistant import (
+    append_turn,
+    trim_history,
     MAX_COMPANIES_IN_CONTEXT,
     PRESETS,
     AssistantError,
@@ -496,9 +498,10 @@ def askOrbit(req: https_fn.CallableRequest) -> dict:
         statuses_by_company=store.statuses_for_student(student_id),
         now=now,
     )
+    history = trim_history(store.get_assistant_history(student_id))
 
     try:
-        answer = GeminiAnswerer()(question.question, context)
+        answer = GeminiAnswerer()(question.question, context, history)
     except AssistantError as error:
         raise https_fn.HttpsError(
             https_fn.FunctionsErrorCode.INTERNAL, error.message
@@ -510,7 +513,14 @@ def askOrbit(req: https_fn.CallableRequest) -> dict:
             "Orbit could not answer that right now.",
         ) from error
 
+    store.put_assistant_history(
+        student_id, append_turn(history, question.question, answer)
+    )
+
     logger.info(
-        "assistant student=%s preset=%s", student_id, question.preset_id
+        "assistant student=%s preset=%s turns=%s",
+        student_id,
+        question.preset_id,
+        len(history),
     )
     return {"question": question.question, "answer": answer, "presets": PRESETS}

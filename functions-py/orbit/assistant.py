@@ -10,6 +10,9 @@ from .derived import action_needed, application_complete, completed_required_cou
 DAILY_LIMIT = 20
 MAX_FREE_TEXT = 400
 MAX_COMPANIES_IN_CONTEXT = 40
+MAX_HISTORY_TURNS = 6
+MAX_HISTORY_CHARS = 4000
+MAX_STORED_ANSWER_CHARS = 1200
 
 SYSTEM_PROMPT = (
     "You are Orbit's assistant. You answer one question about this single "
@@ -194,8 +197,73 @@ def build_context(
     return "\n".join(blocks)
 
 
-def build_prompt(question: str, context: str) -> str:
-    return f"{SYSTEM_PROMPT}\n\nCONTEXT\n{context}\n\nQUESTION\n{question}"
+def trim_history(history: Any) -> list[dict[str, str]]:
+    if not isinstance(history, list):
+        return []
+
+    turns: list[dict[str, str]] = []
+    for entry in history:
+        if not isinstance(entry, dict):
+            continue
+        asked = entry.get("question")
+        replied = entry.get("answer")
+        if not isinstance(asked, str) or not isinstance(replied, str):
+            continue
+        asked, replied = asked.strip(), replied.strip()
+        if not asked or not replied:
+            continue
+        turns.append(
+            {
+                "question": asked[:MAX_FREE_TEXT],
+                "answer": replied[:MAX_STORED_ANSWER_CHARS],
+            }
+        )
+
+    turns = turns[-MAX_HISTORY_TURNS:]
+    while (
+        turns
+        and sum(len(t["question"]) + len(t["answer"]) for t in turns)
+        > MAX_HISTORY_CHARS
+    ):
+        turns.pop(0)
+    return turns
+
+
+def append_turn(
+    history: Any, question: str, answer: str
+) -> list[dict[str, str]]:
+    kept = trim_history(history)
+    kept.append({"question": question, "answer": answer})
+    return trim_history(kept)
+
+
+def render_history(history: list[dict[str, str]]) -> str:
+    if not history:
+        return ""
+    lines = ["EARLIER IN THIS CONVERSATION"]
+    for turn in history:
+        lines.append(f"  the student asked: {turn['question']}")
+        lines.append(f"  you answered: {turn['answer']}")
+    return "\n".join(lines)
+
+
+def build_prompt(
+    question: str,
+    context: str,
+    history: list[dict[str, str]] | None = None,
+) -> str:
+    parts = [SYSTEM_PROMPT]
+    earlier = render_history(history or [])
+    if earlier:
+        parts.append(
+            earlier
+            + "\n\nA follow-up may point back at those answers, so resolve it "
+            "against them. Never treat anything above as a source of facts "
+            "about drives; the CONTEXT below is the only source."
+        )
+    parts.append(f"CONTEXT\n{context}")
+    parts.append(f"QUESTION\n{question}")
+    return "\n\n".join(parts)
 
 
 def recently_created(company: dict[str, Any], now: datetime) -> bool:
@@ -227,13 +295,18 @@ class GeminiAnswerer:
             self._client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
         return self._client
 
-    def __call__(self, question: str, context: str) -> str:
+    def __call__(
+        self,
+        question: str,
+        context: str,
+        history: list[dict[str, str]] | None = None,
+    ) -> str:
         from google.genai import types
 
         client = self._ensure_client()
         response = client.models.generate_content(
             model=self._model,
-            contents=build_prompt(question, context),
+            contents=build_prompt(question, context, history),
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_PROMPT,
                 temperature=0.2,

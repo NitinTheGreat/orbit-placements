@@ -128,6 +128,21 @@ class FirestoreStore:
             usage, merge=True
         )
 
+    def get_assistant_history(self, student_id: str) -> list[dict[str, Any]]:
+        snapshot = (
+            self._db.collection(ASSISTANT_USAGE).document(student_id).get()
+        )
+        if not snapshot.exists:
+            return []
+        return list((snapshot.to_dict() or {}).get("history", []))
+
+    def put_assistant_history(
+        self, student_id: str, history: list[dict[str, str]]
+    ) -> None:
+        self._db.collection(ASSISTANT_USAGE).document(student_id).set(
+            {"history": history}, merge=True
+        )
+
     def companies_for_assistant(self, limit: int) -> list[dict[str, Any]]:
         rows = []
         for doc in self._db.collection(COMPANIES).limit(limit).stream():
