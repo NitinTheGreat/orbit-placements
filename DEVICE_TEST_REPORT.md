@@ -41,7 +41,20 @@ blocked. I did the work that does not need it — see Parts 1 (build only),
 
 ## Part 1 — Fresh build
 
-**Status: partial — APK built, not installed.**
+**Status: partial — APK built and waiting, cannot install.**
+
+`build/app/outputs/flutter-apk/app-release.apk`, 60.3 MB, built 5 September
+from the current tree, so it contains everything from rounds 2 and 3 **plus**
+the notification deep link added in this session.
+
+The debug keystore at `~/.android/debug.keystore` is the same one that signed
+the installed v1.0.0, so `adb install -r` should update in place without an
+uninstall. I have not run it, because there is no device to run it against.
+Nothing has been uninstalled and the Gmail connection is untouched.
+
+Install is one command the moment ADB works:
+
+    adb install -r build/app/outputs/flutter-apk/app-release.apk
 
 ---
 
@@ -118,7 +131,34 @@ client bugs.
 
 ## Part 5 — Fixes
 
-**Status:** in progress
+### Notification tap opens the drive — done, shipped in this APK
+You asked for this at the end of the brief and it needs no device to build.
+
+The server already includes `companyId` in every notification's `data`
+payload (`push.py` `build_message`), so nothing had to change on the server —
+which is fortunate, since nothing server-side can deploy right now.
+
+`lib/services/notification_route.dart` extracts the company id;
+`PushService` listens to `onMessageOpenedApp` **and** checks
+`getInitialMessage()` so a notification that launched the app from cold is
+handled too; `main.dart` performs the navigation.
+
+**One thing that needed care.** A cold start delivers the tap before the
+session is ready, and `resolveRedirect` bounces any non-ready user away from
+`/companies/:id` — so navigating immediately would silently swallow it. The
+tap is therefore *remembered* and replayed once the session reaches `ready`.
+`main.dart` listens to both the pending value and the session.
+
+**Judgment call:** the silent widget-refresh message also carries a
+`companyId`, and it must never yank the user to a screen. It is explicitly
+excluded as a tap target.
+
+**Verified:** 10 tests covering all five server triggers as tap targets, the
+widget-refresh exclusion, blank/non-string/missing ids, trimming, and that
+listeners fire exactly once per tap. 408 Dart tests, analyze clean.
+**Not verified:** no notification has been tapped on a device — and it cannot
+be, because sending one requires the notification functions, which are down
+for billing.
 
 ---
 
