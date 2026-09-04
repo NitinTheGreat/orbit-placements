@@ -9,6 +9,9 @@ ELECTRICAL = "electrical"
 MECHANICAL = "mechanical"
 POSTGRADUATE = "postgraduate"
 
+UNDERGRADUATE = "undergraduate"
+POSTGRADUATE_LEVEL = "postgraduate"
+
 ELIGIBLE = "eligible"
 NOT_OPEN = "not_open"
 UNKNOWN = "unknown"
@@ -18,6 +21,32 @@ _SEPARATORS = re.compile(r"[^a-z0-9]+")
 _EXCLUSION = re.compile(r"\b(except|excluding|other than)\b")
 _OPEN_TO_ALL = re.compile(r"\ball\b")
 _WHITESPACE = re.compile(r"\s+")
+
+LEVEL_KEYWORDS: dict[str, list[str]] = {
+    POSTGRADUATE_LEVEL: [
+        "m tech",
+        "mtech",
+        "m e",
+        "mca",
+        "msc",
+        "m sc",
+        "mba",
+        "pg",
+        "postgraduate",
+        "post graduate",
+        "masters",
+    ],
+    UNDERGRADUATE: [
+        "b tech",
+        "btech",
+        "b e",
+        "ug",
+        "undergraduate",
+        "under graduate",
+        "bachelor",
+        "bachelors",
+    ],
+}
 
 FAMILY_KEYWORDS: dict[str, list[str]] = {
     COMPUTER_SCIENCE: [
@@ -82,6 +111,23 @@ def branch_family_for_reg_no(reg_no: str | None) -> str | None:
     return branch_family_for_code(branch_code_from_reg_no(reg_no))
 
 
+def degree_level_for_code(code: str | None) -> str | None:
+    if not code:
+        return None
+    upper = code.strip().upper()
+    if not upper:
+        return None
+    if upper.startswith("B"):
+        return UNDERGRADUATE
+    if upper.startswith("M"):
+        return POSTGRADUATE_LEVEL
+    return None
+
+
+def degree_level_for_reg_no(reg_no: str | None) -> str | None:
+    return degree_level_for_code(branch_code_from_reg_no(reg_no))
+
+
 def _normalise(value: str) -> str:
     return f" {_SEPARATORS.sub(' ', value.lower()).strip()} "
 
@@ -101,8 +147,18 @@ def families_mentioned_in(text: str) -> set[str]:
     return found
 
 
-def _relevance_for_entry(family: str, entry: str) -> str:
-    lowered = entry.lower()
+def levels_mentioned_in(text: str) -> set[str]:
+    normalised = _normalise(text)
+    found: set[str] = set()
+    for level, keywords in LEVEL_KEYWORDS.items():
+        for keyword in keywords:
+            if _mentions(normalised, keyword):
+                found.add(level)
+                break
+    return found
+
+
+def _branch_outcome(family: str, lowered: str) -> str:
     exclusion = _EXCLUSION.search(lowered)
 
     if exclusion:
@@ -121,28 +177,50 @@ def _relevance_for_entry(family: str, entry: str) -> str:
 
 
 def branch_relevance(
-    family: str | None, eligible_branches: Iterable[str] | None
+    family: str | None,
+    eligible_branches: Iterable[str] | None,
+    level: str | None = None,
 ) -> str:
     if not family:
         return UNKNOWN
 
-    saw_not_open = False
+    level_admitted = False
+    level_excluded = False
+    branch_excluded = False
+
     for entry in eligible_branches or []:
         if not entry or not entry.strip():
             continue
-        outcome = _relevance_for_entry(family, entry)
+        lowered = entry.lower()
+        levels = levels_mentioned_in(lowered)
+
+        if level is not None and levels and level not in levels:
+            level_excluded = True
+            continue
+        level_admitted = True
+
+        if family == POSTGRADUATE:
+            continue
+
+        outcome = _branch_outcome(family, lowered)
         if outcome == ELIGIBLE:
             return ELIGIBLE
         if outcome == NOT_OPEN:
-            saw_not_open = True
+            branch_excluded = True
 
-    return NOT_OPEN if saw_not_open else UNKNOWN
+    if level_admitted:
+        return NOT_OPEN if branch_excluded else UNKNOWN
+    return NOT_OPEN if level_excluded else UNKNOWN
 
 
 def branch_relevance_for_reg_no(
     reg_no: str | None, eligible_branches: Iterable[str] | None
 ) -> str:
-    return branch_relevance(branch_family_for_reg_no(reg_no), eligible_branches)
+    return branch_relevance(
+        branch_family_for_reg_no(reg_no),
+        eligible_branches,
+        degree_level_for_reg_no(reg_no),
+    )
 
 
 def is_confident_mismatch(

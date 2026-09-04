@@ -8,49 +8,188 @@
     "postgraduate": "postgraduate"
   },
   "codes": [
-    { "code": "BCT", "family": "computer_science" },
-    { "code": "BCE", "family": "computer_science" },
-    { "code": "BCI", "family": "computer_science" },
-    { "code": "BCS", "family": "computer_science" },
-    { "code": "BCX", "family": "computer_science" },
-    { "code": "BIT", "family": "information_technology" },
-    { "code": "BEE", "family": "electrical" },
-    { "code": "BEC", "family": "electrical" },
-    { "code": "BEI", "family": "electrical" },
-    { "code": "BEZ", "family": "electrical" },
-    { "code": "BMY", "family": "mechanical" },
-    { "code": "BME", "family": "mechanical" },
-    { "code": "BMA", "family": "mechanical" },
-    { "code": "MCA", "family": "postgraduate" },
-    { "code": "MIC", "family": "postgraduate" },
-    { "code": "MTX", "family": "postgraduate" },
-    { "code": "M", "family": "postgraduate" },
-    { "code": "BAI", "family": null },
-    { "code": "BBT", "family": null },
-    { "code": "BPS", "family": null },
-    { "code": "BDS", "family": null },
-    { "code": "XYZ", "family": null },
-    { "code": "B", "family": null },
-    { "code": "", "family": null },
-    { "code": null, "family": null }
+    {
+      "code": "BCT",
+      "family": "computer_science"
+    },
+    {
+      "code": "BCE",
+      "family": "computer_science"
+    },
+    {
+      "code": "BCI",
+      "family": "computer_science"
+    },
+    {
+      "code": "BCS",
+      "family": "computer_science"
+    },
+    {
+      "code": "BCX",
+      "family": "computer_science"
+    },
+    {
+      "code": "BIT",
+      "family": "information_technology"
+    },
+    {
+      "code": "BEE",
+      "family": "electrical"
+    },
+    {
+      "code": "BEC",
+      "family": "electrical"
+    },
+    {
+      "code": "BEI",
+      "family": "electrical"
+    },
+    {
+      "code": "BEZ",
+      "family": "electrical"
+    },
+    {
+      "code": "BMY",
+      "family": "mechanical"
+    },
+    {
+      "code": "BME",
+      "family": "mechanical"
+    },
+    {
+      "code": "BMA",
+      "family": "mechanical"
+    },
+    {
+      "code": "MCA",
+      "family": "postgraduate"
+    },
+    {
+      "code": "MIC",
+      "family": "postgraduate"
+    },
+    {
+      "code": "MTX",
+      "family": "postgraduate"
+    },
+    {
+      "code": "M",
+      "family": "postgraduate"
+    },
+    {
+      "code": "BAI",
+      "family": null
+    },
+    {
+      "code": "BBT",
+      "family": null
+    },
+    {
+      "code": "BPS",
+      "family": null
+    },
+    {
+      "code": "BDS",
+      "family": null
+    },
+    {
+      "code": "XYZ",
+      "family": null
+    },
+    {
+      "code": "B",
+      "family": null
+    },
+    {
+      "code": "",
+      "family": null
+    },
+    {
+      "code": null,
+      "family": null
+    }
   ],
   "regNos": [
-    { "regNo": "23BCT0098", "code": "BCT", "family": "computer_science" },
-    { "regNo": "22BCE1234", "code": "BCE", "family": "computer_science" },
-    { "regNo": " 23bct0098 ", "code": "BCT", "family": "computer_science" },
-    { "regNo": "23 BCT 0098", "code": "BCT", "family": "computer_science" },
-    { "regNo": "21BIT0001", "code": "BIT", "family": "information_technology" },
-    { "regNo": "20BEE0500", "code": "BEE", "family": "electrical" },
-    { "regNo": "19BMY0042", "code": "BMY", "family": "mechanical" },
-    { "regNo": "24MCA0007", "code": "MCA", "family": "postgraduate" },
-    { "regNo": "23BAI0210", "code": "BAI", "family": null },
-    { "regNo": "23XYZ0001", "code": "XYZ", "family": null },
-    { "regNo": "BCT0098", "code": null, "family": null },
-    { "regNo": "23BC0098", "code": null, "family": null },
-    { "regNo": "23BCT098", "code": null, "family": null },
-    { "regNo": "2023BCT0098", "code": null, "family": null },
-    { "regNo": "", "code": null, "family": null },
-    { "regNo": null, "code": null, "family": null }
+    {
+      "regNo": "23BCT0098",
+      "code": "BCT",
+      "family": "computer_science"
+    },
+    {
+      "regNo": "22BCE1234",
+      "code": "BCE",
+      "family": "computer_science"
+    },
+    {
+      "regNo": " 23bct0098 ",
+      "code": "BCT",
+      "family": "computer_science"
+    },
+    {
+      "regNo": "23 BCT 0098",
+      "code": "BCT",
+      "family": "computer_science"
+    },
+    {
+      "regNo": "21BIT0001",
+      "code": "BIT",
+      "family": "information_technology"
+    },
+    {
+      "regNo": "20BEE0500",
+      "code": "BEE",
+      "family": "electrical"
+    },
+    {
+      "regNo": "19BMY0042",
+      "code": "BMY",
+      "family": "mechanical"
+    },
+    {
+      "regNo": "24MCA0007",
+      "code": "MCA",
+      "family": "postgraduate"
+    },
+    {
+      "regNo": "23BAI0210",
+      "code": "BAI",
+      "family": null
+    },
+    {
+      "regNo": "23XYZ0001",
+      "code": "XYZ",
+      "family": null
+    },
+    {
+      "regNo": "BCT0098",
+      "code": null,
+      "family": null
+    },
+    {
+      "regNo": "23BC0098",
+      "code": null,
+      "family": null
+    },
+    {
+      "regNo": "23BCT098",
+      "code": null,
+      "family": null
+    },
+    {
+      "regNo": "2023BCT0098",
+      "code": null,
+      "family": null
+    },
+    {
+      "regNo": "",
+      "code": null,
+      "family": null
+    },
+    {
+      "regNo": null,
+      "code": null,
+      "family": null
+    }
   ],
   "relevance": [
     {
@@ -64,13 +203,15 @@
         "21BIT0001": "not_open",
         "19BMY0042": "eligible",
         "20BEE0500": "eligible",
-        "24MCA0007": "eligible",
+        "24MCA0007": "unknown",
         "23BAI0210": "unknown"
       }
     },
     {
       "why": "Superjoin is CSE/IT only",
-      "eligibleBranches": ["B.Tech CSE/IT related branches"],
+      "eligibleBranches": [
+        "B.Tech CSE/IT related branches"
+      ],
       "expect": {
         "23BCT0098": "eligible",
         "21BIT0001": "eligible",
@@ -94,7 +235,9 @@
     },
     {
       "why": "Urban Company excludes CS/IT explicitly",
-      "eligibleBranches": ["All B.Techs (except CS/IT Related)"],
+      "eligibleBranches": [
+        "All B.Techs (except CS/IT Related)"
+      ],
       "expect": {
         "23BCT0098": "not_open",
         "21BIT0001": "not_open",
@@ -142,33 +285,215 @@
     },
     {
       "why": "blank entries are never a mismatch",
-      "eligibleBranches": ["", "   "],
-      "expect": { "23BCT0098": "unknown" }
+      "eligibleBranches": [
+        "",
+        "   "
+      ],
+      "expect": {
+        "23BCT0098": "unknown"
+      }
     },
     {
       "why": "text naming no branch at all is never a mismatch",
-      "eligibleBranches": ["All B.Techs", "No standing arrears"],
-      "expect": { "23BCT0098": "unknown", "19BMY0042": "unknown" }
+      "eligibleBranches": [
+        "All B.Techs",
+        "No standing arrears"
+      ],
+      "expect": {
+        "23BCT0098": "unknown",
+        "19BMY0042": "unknown"
+      }
     },
     {
       "why": "an exclusion naming nothing recognisable stays unknown",
-      "eligibleBranches": ["All B.Techs except backlog holders"],
-      "expect": { "23BCT0098": "unknown" }
+      "eligibleBranches": [
+        "All B.Techs except backlog holders"
+      ],
+      "expect": {
+        "23BCT0098": "unknown"
+      }
     },
     {
       "why": "an exclusion without an all base stays unknown",
-      "eligibleBranches": ["Select branches except CSE"],
-      "expect": { "19BMY0042": "unknown" }
+      "eligibleBranches": [
+        "Select branches except CSE"
+      ],
+      "expect": {
+        "19BMY0042": "unknown"
+      }
     },
     {
       "why": "an unmapped code is never flagged, whatever the text says",
-      "eligibleBranches": ["B.Tech CSE/IT related branches"],
-      "expect": { "23BAI0210": "unknown", "23XYZ0001": "unknown" }
+      "eligibleBranches": [
+        "B.Tech CSE/IT related branches"
+      ],
+      "expect": {
+        "23BAI0210": "unknown",
+        "23XYZ0001": "unknown"
+      }
     },
     {
       "why": "an ordinary word must not match a branch code",
-      "eligibleBranches": ["Necessary prerequisites apply"],
-      "expect": { "23BCT0098": "unknown", "20BEE0500": "unknown" }
+      "eligibleBranches": [
+        "Necessary prerequisites apply"
+      ],
+      "expect": {
+        "23BCT0098": "unknown",
+        "20BEE0500": "unknown"
+      }
+    },
+    {
+      "why": "Voxela is M.Tech CSE and IT, live in production",
+      "eligibleBranches": [
+        "M.Tech CSE & IT related branches"
+      ],
+      "expect": {
+        "23BCT0098": "not_open",
+        "21BIT0001": "not_open",
+        "19BMY0042": "not_open",
+        "24MCA0007": "unknown"
+      }
+    },
+    {
+      "why": "Face Prep is M.Tech CSE/IT only, live in production",
+      "eligibleBranches": [
+        "M. Tech ( CSE / IT ) related branches only"
+      ],
+      "expect": {
+        "23BCT0098": "not_open",
+        "24MCA0007": "unknown"
+      }
+    },
+    {
+      "why": "FlamAI lists only postgraduate routes, live in production",
+      "eligibleBranches": [
+        "M.Tech( 2 yr & 5 Yr) CSE,IT,ECE,EEE related branches",
+        "M.Tech/ Dual degree/ integrated course MSc in Tech- AI/ML, Data Science, Robotics, Electrical,Electronics, Computer Science and Mathematics"
+      ],
+      "expect": {
+        "23BCT0098": "not_open",
+        "20BEE0500": "not_open"
+      }
+    },
+    {
+      "why": "Premas is M.Tech Biotechnology, no branch overlap either way",
+      "eligibleBranches": [
+        "M.Tech Biotechnology"
+      ],
+      "expect": {
+        "23BCT0098": "not_open",
+        "19BMY0042": "not_open"
+      }
+    },
+    {
+      "why": "a drive naming both levels admits both",
+      "eligibleBranches": [
+        "B.Tech/M.Tech CSE"
+      ],
+      "expect": {
+        "23BCT0098": "eligible",
+        "24MCA0007": "unknown"
+      }
+    },
+    {
+      "why": "Syrma mixes unlabelled B.Tech branches with an MBA entry",
+      "eligibleBranches": [
+        "Computer Science & Engineering",
+        "Mechanical Engineering",
+        "MBA"
+      ],
+      "expect": {
+        "23BCT0098": "eligible",
+        "19BMY0042": "eligible"
+      }
+    },
+    {
+      "why": "Cognizant names a level but no branch",
+      "eligibleBranches": [
+        "B.E",
+        "B.Tech"
+      ],
+      "expect": {
+        "23BCT0098": "unknown",
+        "24MCA0007": "not_open"
+      }
+    },
+    {
+      "why": "Haleon is MBA only",
+      "eligibleBranches": [
+        "MBA"
+      ],
+      "expect": {
+        "23BCT0098": "not_open"
+      }
+    },
+    {
+      "why": "an unstated level never suppresses",
+      "eligibleBranches": [
+        "CSE",
+        "Electronics"
+      ],
+      "expect": {
+        "23BCT0098": "eligible",
+        "20BEE0500": "eligible"
+      }
+    },
+    {
+      "why": "Kinaxis states B.Tech throughout and still admits a B.Tech student",
+      "eligibleBranches": [
+        "All B.Tech (CSE/IT) related branches",
+        "All B.Tech ECE related branches (only applicable for Technical Support Associate Role)"
+      ],
+      "expect": {
+        "23BCT0098": "eligible",
+        "24MCA0007": "not_open"
+      }
+    }
+  ],
+  "levels": [
+    {
+      "code": "BCT",
+      "level": "undergraduate"
+    },
+    {
+      "code": "BIT",
+      "level": "undergraduate"
+    },
+    {
+      "code": "BEE",
+      "level": "undergraduate"
+    },
+    {
+      "code": "BMY",
+      "level": "undergraduate"
+    },
+    {
+      "code": "BAI",
+      "level": "undergraduate"
+    },
+    {
+      "code": "MCA",
+      "level": "postgraduate"
+    },
+    {
+      "code": "MTX",
+      "level": "postgraduate"
+    },
+    {
+      "code": "MIC",
+      "level": "postgraduate"
+    },
+    {
+      "code": "XYZ",
+      "level": null
+    },
+    {
+      "code": "",
+      "level": null
+    },
+    {
+      "code": null,
+      "level": null
     }
   ]
 }

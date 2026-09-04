@@ -7,6 +7,10 @@ import pytest
 
 from orbit.branches import (
     COMPUTER_SCIENCE,
+    POSTGRADUATE_LEVEL,
+    UNDERGRADUATE,
+    degree_level_for_code,
+    levels_mentioned_in,
     ELECTRICAL,
     ELIGIBLE,
     INFORMATION_TECHNOLOGY,
@@ -56,6 +60,55 @@ def _relevance_rows():
 @pytest.mark.parametrize("branches,reg_no,expected", _relevance_rows())
 def test_shared_table_relevance(branches, reg_no, expected):
     assert branch_relevance_for_reg_no(reg_no, branches) == expected
+
+
+@pytest.mark.parametrize("row", CASES["levels"], ids=lambda r: str(r["code"]))
+def test_shared_table_levels(row):
+    assert degree_level_for_code(row["code"]) == row["level"]
+
+
+class TestDegreeLevelDetection:
+    def test_an_mtech_drive_reads_as_postgraduate_only(self):
+        assert levels_mentioned_in("M.Tech CSE & IT related branches") == {
+            POSTGRADUATE_LEVEL
+        }
+        assert levels_mentioned_in("M. Tech ( CSE / IT ) related branches only") == {
+            POSTGRADUATE_LEVEL
+        }
+
+    def test_a_btech_drive_reads_as_undergraduate_only(self):
+        assert levels_mentioned_in("B.Tech CSE/IT related branches") == {UNDERGRADUATE}
+        assert levels_mentioned_in("B.E") == {UNDERGRADUATE}
+
+    def test_a_drive_naming_both_reads_as_both(self):
+        assert levels_mentioned_in("B.Tech/M.Tech CSE") == {
+            UNDERGRADUATE,
+            POSTGRADUATE_LEVEL,
+        }
+
+    def test_a_drive_naming_no_level_reads_as_nothing(self):
+        assert levels_mentioned_in("Computer Science & Engineering") == set()
+        assert levels_mentioned_in("CSE") == set()
+
+    def test_a_level_mismatch_beats_a_branch_match(self):
+        assert (
+            branch_relevance_for_reg_no(
+                "23BCT0098", ["M.Tech CSE & IT related branches"]
+            )
+            == NOT_OPEN
+        )
+
+    def test_the_live_mtech_drives_are_all_suppressed_for_a_btech_student(self):
+        live = {
+            "Voxela": ["M.Tech CSE & IT related branches"],
+            "Face Prep": ["M. Tech ( CSE / IT ) related branches only"],
+            "FlamAI": ["M.Tech( 2 yr & 5 Yr) CSE,IT,ECE,EEE related branches"],
+            "Premas Life Science": ["M.Tech Biotechnology"],
+        }
+        for name, branches in live.items():
+            assert (
+                branch_relevance_for_reg_no("23BCT0098", branches) == NOT_OPEN
+            ), name
 
 
 class TestPrefixRules:

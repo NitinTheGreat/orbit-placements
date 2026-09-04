@@ -88,6 +88,64 @@ void main() {
     }
   });
 
+  group('shared parity table, degree level', () {
+    for (final entry in cases['levels'] as List<dynamic>) {
+      final row = entry as Map<String, dynamic>;
+      final code = row['code'] as String?;
+      final expected = row['level'] as String?;
+      test('${code ?? 'null'} is ${expected ?? 'no level'}', () {
+        expect(
+          degreeLevelForCode(code),
+          expected == null
+              ? isNull
+              : (expected == 'undergraduate'
+                    ? DegreeLevel.undergraduate
+                    : DegreeLevel.postgraduate),
+        );
+      });
+    }
+  });
+
+  group('degree level detection in eligibility text', () {
+    test('an M.Tech drive reads as postgraduate only', () {
+      expect(levelsMentionedIn('M.Tech CSE & IT related branches'), {
+        DegreeLevel.postgraduate,
+      });
+      expect(levelsMentionedIn('M. Tech ( CSE / IT ) related branches only'), {
+        DegreeLevel.postgraduate,
+      });
+    });
+
+    test('a B.Tech drive reads as undergraduate only', () {
+      expect(levelsMentionedIn('B.Tech CSE/IT related branches'), {
+        DegreeLevel.undergraduate,
+      });
+      expect(levelsMentionedIn('B.E'), {DegreeLevel.undergraduate});
+    });
+
+    test('a drive naming both reads as both', () {
+      expect(levelsMentionedIn('B.Tech/M.Tech CSE'), {
+        DegreeLevel.undergraduate,
+        DegreeLevel.postgraduate,
+      });
+    });
+
+    test('a drive naming no level reads as nothing', () {
+      expect(levelsMentionedIn('Computer Science & Engineering'), isEmpty);
+      expect(levelsMentionedIn('CSE'), isEmpty);
+    });
+
+    test('a level mismatch beats a branch match', () {
+      expect(
+        branchRelevanceForRegNo(
+          regNo: '23BCT0098',
+          eligibleBranches: const ['M.Tech CSE & IT related branches'],
+        ),
+        BranchRelevance.notOpen,
+      );
+    });
+  });
+
   group('the prefix rules you confirmed', () {
     test('any BC code is CS family, whatever the third letter', () {
       for (final code in ['BCA', 'BCB', 'BCT', 'BCZ']) {

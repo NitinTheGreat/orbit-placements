@@ -22,6 +22,34 @@ const Map<BranchFamily, String> branchFamilyNames = <BranchFamily, String>{
   BranchFamily.postgraduate: 'Postgraduate',
 };
 
+enum DegreeLevel { undergraduate, postgraduate }
+
+const Map<DegreeLevel, List<String>> _levelKeywords = <DegreeLevel, List<String>>{
+  DegreeLevel.postgraduate: <String>[
+    'm tech',
+    'mtech',
+    'm e',
+    'mca',
+    'msc',
+    'm sc',
+    'mba',
+    'pg',
+    'postgraduate',
+    'post graduate',
+    'masters',
+  ],
+  DegreeLevel.undergraduate: <String>[
+    'b tech',
+    'btech',
+    'b e',
+    'ug',
+    'undergraduate',
+    'under graduate',
+    'bachelor',
+    'bachelors',
+  ],
+};
+
 final RegExp _regNoPattern = RegExp(r'^(\d{2})([A-Z]{3})(\d{4})$');
 
 String? branchCodeFromRegNo(String? regNo) {
@@ -53,6 +81,37 @@ BranchFamily? branchFamilyForCode(String? code) {
     return BranchFamily.postgraduate;
   }
   return null;
+}
+
+DegreeLevel? degreeLevelForCode(String? code) {
+  final upper = code?.trim().toUpperCase();
+  if (upper == null || upper.isEmpty) {
+    return null;
+  }
+  if (upper.startsWith('B')) {
+    return DegreeLevel.undergraduate;
+  }
+  if (upper.startsWith('M')) {
+    return DegreeLevel.postgraduate;
+  }
+  return null;
+}
+
+DegreeLevel? degreeLevelForRegNo(String? regNo) =>
+    degreeLevelForCode(branchCodeFromRegNo(regNo));
+
+Set<DegreeLevel> levelsMentionedIn(String text) {
+  final normalised = _normalise(text);
+  final found = <DegreeLevel>{};
+  _levelKeywords.forEach((level, keywords) {
+    for (final keyword in keywords) {
+      if (_mentions(normalised, keyword)) {
+        found.add(level);
+        return;
+      }
+    }
+  });
+  return found;
 }
 
 BranchInfo? branchForRegNo(String? regNo) {
@@ -132,8 +191,7 @@ Set<BranchFamily> familiesMentionedIn(String text) {
 
 enum BranchRelevance { eligible, notOpen, unknown }
 
-BranchRelevance _relevanceForEntry(BranchFamily family, String entry) {
-  final lowered = entry.toLowerCase();
+BranchRelevance _branchOutcome(BranchFamily family, String lowered) {
   final exclusion = _exclusion.firstMatch(lowered);
 
   if (exclusion != null) {
@@ -162,27 +220,50 @@ BranchRelevance _relevanceForEntry(BranchFamily family, String entry) {
 BranchRelevance branchRelevance({
   required BranchInfo? branch,
   required List<String> eligibleBranches,
+  DegreeLevel? level,
 }) {
   if (branch == null) {
     return BranchRelevance.unknown;
   }
 
-  var sawNotOpen = false;
+  final resolvedLevel = level ?? degreeLevelForCode(branch.code);
+  var levelAdmitted = false;
+  var levelExcluded = false;
+  var branchExcluded = false;
+
   for (final entry in eligibleBranches) {
     if (entry.trim().isEmpty) {
       continue;
     }
-    switch (_relevanceForEntry(branch.family, entry)) {
+    final lowered = entry.toLowerCase();
+    final levels = levelsMentionedIn(lowered);
+
+    if (resolvedLevel != null &&
+        levels.isNotEmpty &&
+        !levels.contains(resolvedLevel)) {
+      levelExcluded = true;
+      continue;
+    }
+    levelAdmitted = true;
+
+    if (branch.family == BranchFamily.postgraduate) {
+      continue;
+    }
+
+    switch (_branchOutcome(branch.family, lowered)) {
       case BranchRelevance.eligible:
         return BranchRelevance.eligible;
       case BranchRelevance.notOpen:
-        sawNotOpen = true;
+        branchExcluded = true;
       case BranchRelevance.unknown:
         break;
     }
   }
 
-  return sawNotOpen ? BranchRelevance.notOpen : BranchRelevance.unknown;
+  if (levelAdmitted) {
+    return branchExcluded ? BranchRelevance.notOpen : BranchRelevance.unknown;
+  }
+  return levelExcluded ? BranchRelevance.notOpen : BranchRelevance.unknown;
 }
 
 BranchRelevance branchRelevanceForRegNo({
@@ -192,5 +273,6 @@ BranchRelevance branchRelevanceForRegNo({
   return branchRelevance(
     branch: branchForRegNo(regNo),
     eligibleBranches: eligibleBranches,
+    level: degreeLevelForRegNo(regNo),
   );
 }
