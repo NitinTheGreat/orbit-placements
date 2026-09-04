@@ -259,6 +259,7 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
             filter: filter,
             companies: loaded,
             statusesByCompanyId: statusesByCompanyId,
+            branch: branch,
           )
         : applyLock(
             lock: lock,

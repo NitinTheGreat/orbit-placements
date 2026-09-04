@@ -1,6 +1,8 @@
 import '../../../models/application_status.dart';
+import '../../../models/branch_eligibility.dart';
 import '../../../models/company.dart';
 import '../../../models/student_company_status.dart';
+import 'drive_ordering.dart';
 
 enum DriveFilter {
   all('All'),
@@ -19,6 +21,7 @@ bool matchesFilter({
   required DriveFilter filter,
   required Company company,
   required StudentCompanyStatus? status,
+  BranchInfo? branch,
   DateTime? now,
 }) {
   final application = DriveApplication(
@@ -26,14 +29,15 @@ bool matchesFilter({
     status: status,
     now: now,
   );
+  final band = driveBand(application, branch: branch);
 
   return switch (filter) {
     DriveFilter.all => true,
-    DriveFilter.actionNeeded => application.needsAction,
+    DriveFilter.actionNeeded => band == DriveBand.actionNeeded,
+    DriveFilter.closed => band == DriveBand.concluded,
     DriveFilter.inProgress => application.isInProgress,
     DriveFilter.selected => application.overallStatus == OverallStatus.selected,
     DriveFilter.rejected => application.overallStatus == OverallStatus.rejected,
-    DriveFilter.closed => company.status == CompanyStatus.closed,
   };
 }
 
@@ -41,6 +45,7 @@ List<Company> applyFilter({
   required DriveFilter filter,
   required List<Company> companies,
   required Map<String, StudentCompanyStatus> statusesByCompanyId,
+  BranchInfo? branch,
   DateTime? now,
 }) {
   if (filter == DriveFilter.all) {
@@ -52,6 +57,7 @@ List<Company> applyFilter({
           filter: filter,
           company: company,
           status: statusesByCompanyId[company.id],
+          branch: branch,
           now: now,
         ),
       )
@@ -64,7 +70,7 @@ String emptyStateHeadline(DriveFilter filter) {
     DriveFilter.selected => 'Nothing yet — keep at it.',
     DriveFilter.inProgress => 'No drives in progress.',
     DriveFilter.rejected => 'Nothing here.',
-    DriveFilter.closed => 'No closed drives yet.',
+    DriveFilter.closed => 'Nothing has wrapped up yet.',
     DriveFilter.all => 'No drives yet',
   };
 }
