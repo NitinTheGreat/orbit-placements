@@ -121,11 +121,21 @@ def merge_round_history(
 
 
 def merge_rounds(
-    existing: list[dict[str, Any]], name: str, round_type: str, now: datetime
+    existing: list[dict[str, Any]],
+    name: str,
+    round_type: str,
+    now: datetime,
+    scheduled_date: Any = None,
 ) -> tuple[list[dict[str, Any]], str, bool]:
     target = slugify(name)
     for entry in existing:
         if entry.get("id") == target or entry.get("name", "").lower() == name.lower():
+            if scheduled_date is not None and not entry.get("scheduledDate"):
+                updated = [dict(e) for e in existing]
+                for e in updated:
+                    if e.get("id") == entry["id"]:
+                        e["scheduledDate"] = scheduled_date
+                return updated, entry["id"], False
             return existing, entry["id"], False
     rounds = [dict(entry) for entry in existing]
     round_id = unique_slug(name, [r.get("id", "") for r in rounds])
@@ -137,6 +147,7 @@ def merge_rounds(
             "order": next_order,
             "type": round_type or "other",
             "announcedAt": now,
+            "scheduledDate": scheduled_date,
         }
     )
     return rounds, round_id, True

@@ -9,6 +9,7 @@ import '../../../../models/company.dart';
 import '../../../../models/student_company_status.dart';
 import '../application_channel.dart';
 import '../company_format.dart';
+import '../drive_date.dart';
 import '../currency_format.dart';
 import 'stage_pill.dart';
 
@@ -103,7 +104,7 @@ class DriveCard extends StatelessWidget {
                     ),
                     const SizedBox(height: OrbitSpacing.md),
                     _DeadlineLine(
-                      deadline: company.registrationDeadline,
+                      shown: driveDate(company),
                       urgency: urgency,
                     ),
                     if (company.ctc != null && company.ctc!.isNotEmpty) ...[
@@ -177,16 +178,17 @@ class OffBranchTag extends StatelessWidget {
 }
 
 class _DeadlineLine extends StatelessWidget {
-  const _DeadlineLine({required this.deadline, required this.urgency});
+  const _DeadlineLine({required this.shown, required this.urgency});
 
-  final DateTime? deadline;
+  final DriveDate shown;
   final DeadlineUrgency urgency;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = OrbitTheme.of(context);
-    final pressing = urgency.isPressing;
+    final pressing =
+        urgency.isPressing && shown.kind == DriveDateKind.registration;
     final tint = pressing ? colors.urgentInk : colors.inkMuted;
 
     return Row(
@@ -199,7 +201,13 @@ class _DeadlineLine extends StatelessWidget {
         const SizedBox(width: OrbitSpacing.sm),
         Expanded(
           child: Text(
-            CompanyFormat.deadlineLabel(deadline),
+            switch (shown.kind) {
+              DriveDateKind.unknown => shown.label,
+              DriveDateKind.registration => CompanyFormat.deadlineLabel(
+                shown.date,
+              ),
+              _ => '${shown.label} ${CompanyFormat.date(shown.date)}',
+            },
             style: theme.textTheme.labelMedium?.copyWith(
               color: tint,
               fontWeight: pressing ? FontWeight.w600 : FontWeight.w500,

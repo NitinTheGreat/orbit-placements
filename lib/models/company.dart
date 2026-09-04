@@ -45,6 +45,7 @@ class CompanyRound {
     required this.order,
     this.type = RoundType.other,
     this.announcedAt,
+    this.scheduledDate,
   });
 
   final String id;
@@ -52,6 +53,7 @@ class CompanyRound {
   final int order;
   final RoundType type;
   final DateTime? announcedAt;
+  final DateTime? scheduledDate;
 
   factory CompanyRound.fromMap(Map<String, dynamic> map) {
     return CompanyRound(
@@ -60,6 +62,7 @@ class CompanyRound {
       order: (map['order'] as num?)?.toInt() ?? 0,
       type: RoundType.fromWire(map['type']),
       announcedAt: Company._toDate(map['announcedAt']),
+      scheduledDate: Company._toDate(map['scheduledDate']),
     );
   }
 
@@ -72,6 +75,9 @@ class CompanyRound {
       'announcedAt': announcedAt == null
           ? null
           : Timestamp.fromDate(announcedAt!),
+      'scheduledDate': scheduledDate == null
+          ? null
+          : Timestamp.fromDate(scheduledDate!),
     };
   }
 }

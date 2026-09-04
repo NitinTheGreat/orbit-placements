@@ -21,6 +21,10 @@ SYSTEM_PROMPT = (
     "'company_site' for a registration page on the company's own site, and "
     "'other' for anything else. Requirements that describe separate actions "
     "stay separate items, even when both happen on the same portal. "
+    "For scheduled_date, give the date the round itself happens when the "
+    "email states it, such as 'the test is on 12 September' or 'interviews "
+    "on 10/09 at 9 AM'. Leave it null when the email only announces that a "
+    "round exists without saying when. Never use the date the email was sent. "
     "For roster_type, leave it null unless the email carries a list of "
     "students for a round. When it does, use 'complete_final' only when the "
     "email's own language frames that list as the definitive and entire set "
@@ -47,6 +51,14 @@ class RoundInfo(BaseModel):
     result: Literal["invited", "cleared", "rejected", "pending"] | None = Field(
         default=None,
         description="Outcome this email conveys for the students it names.",
+    )
+    scheduled_date: str | None = Field(
+        default=None,
+        description=(
+            "ISO 8601 date, with time when stated, of when this round actually "
+            "takes place. Only when the email says when the round happens. "
+            "Never the date the email was sent."
+        ),
     )
     roster_type: Literal["complete_final", "partial_or_unclear"] | None = Field(
         default=None,

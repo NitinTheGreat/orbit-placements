@@ -331,3 +331,38 @@ def test_repeat_result_for_same_round_overwrites_in_place():
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
+
+
+def test_a_round_records_the_date_it_actually_happens():
+    import copy
+    from orbit.store import merge_rounds
+    from datetime import datetime, timezone
+
+    when = datetime(2026, 9, 12, 9, 0, tzinfo=timezone.utc)
+    rounds, rid, created = merge_rounds([], "Online test", "oa", FIXED_NOW, when)
+    assert created is True
+    assert rounds[0]["scheduledDate"] == when
+
+    again, rid2, created2 = merge_rounds(rounds, "Online test", "oa", FIXED_NOW, None)
+    assert created2 is False
+    assert again[0]["scheduledDate"] == when
+
+
+def test_a_later_mail_fills_in_a_missing_scheduled_date():
+    from orbit.store import merge_rounds
+    from datetime import datetime, timezone
+
+    rounds, _, _ = merge_rounds([], "Online test", "oa", FIXED_NOW, None)
+    assert rounds[0].get("scheduledDate") is None
+
+    when = datetime(2026, 9, 12, 9, 0, tzinfo=timezone.utc)
+    filled, _, created = merge_rounds(rounds, "Online test", "oa", FIXED_NOW, when)
+    assert created is False
+    assert filled[0]["scheduledDate"] == when
+
+
+def test_the_extraction_schema_exposes_scheduled_date():
+    from orbit.extraction import RoundInfo
+
+    assert "scheduled_date" in RoundInfo.model_fields
+    assert RoundInfo().scheduled_date is None

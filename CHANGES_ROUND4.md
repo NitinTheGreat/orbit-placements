@@ -103,7 +103,69 @@ you. `A-action-*.png`, `A-all-*.png`.
 
 ## Part B — relevant date, never "no deadline"
 
-**Status:** not started
+**Status: done and deployed, verified on device**
+
+### 5. Checked first: rounds carry no scheduled date at all
+Across all 76 companies there are 64 round objects, and their keys are exactly:
+
+    name, announcedAt, order, id, type
+
+`scheduledDate` appears **0 times**; `announcedAt` appears 64 times and is the
+moment Orbit *detected* the round, not when it happens. So your suspicion was
+right and the field had to be added.
+
+Added `scheduled_date` to the extraction schema with prompt guidance that is
+explicit about the trap: give the date the round happens when the mail states
+it, and **never** the date the mail was sent. Stored as `scheduledDate` on the
+round object, and a later mail can fill it in on a round that was first seen
+without one.
+
+**Existing drives will not have it until re-ingested.** Every round in
+production today was created before this field existed, so the upcoming-round
+branch cannot fire for them yet. New and updated drives will populate it.
+
+Extraction and the round merge are **deployed** — billing came back, so this
+did not have to wait.
+
+### 4. One derived date, first match wins
+`drive_date.dart`, priority exactly as specified: next upcoming dated round
+(labelled with the round name) → registration deadline → most recent past
+dated round (labelled as past) → `Date not announced`. A closed registration
+is used as a last resort before giving up, which is more useful than nothing.
+
+**A regression I caught on device, in my own logic.** My first version gated
+the registration branch on `registrationStillOpen`, which requires
+`status == registration_open`. On device that produced **"Registration closed
+6 Sep 2026" for Cognizant — a date in the future**, because its status is
+`in_progress` while its deadline is still ahead. For *display* what matters is
+whether the deadline has passed, not the lifecycle field, so the branch now
+tests the deadline directly. Two tests pin it: a future deadline reads as
+closing whatever the status, and a deadline tomorrow is never described as
+closed.
+
+### 6. Device verification
+`B-dates-fixed.png`, `B-dates-scrolled.png`:
+
+    FlamAI      Closes in 2 days
+    WinWire     Registration closed 1 Sep 2026
+    Kinaxis     Registration closed 2 Sep 2026
+    RFPIO       Closes today
+
+**No card reads "No deadline" any more.** 11 tests, 428 Dart, 291 Python.
+
+### Something this surfaced, worth its own pass
+FlamAI now exists as **three** company documents, and in one of them the
+extractor split a single eligibility sentence into fragments:
+
+    'M.Tech( 2 yr & 5 Yr) CSE'   'IT'   'ECE'   'EEE related branches'
+    ...and in another: 'Computer Science and Mathematics'   (on its own)
+
+That last fragment is orphaned from its "M.Tech/ Dual degree" qualifier, so
+the level gate correctly reads it as *level unstated* and returns **eligible**.
+The gate is behaving correctly on the data it is given; the fault is upstream,
+in extraction splitting one qualified sentence into unqualified pieces. It is
+why one FlamAI card now shows without the branch tag while the other two are
+still suppressed.
 
 ---
 

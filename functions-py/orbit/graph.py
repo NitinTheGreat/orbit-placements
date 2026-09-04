@@ -127,7 +127,11 @@ def make_company_write(deps: Deps):
         created_round = False
         if round_name:
             rounds, round_id, created_round = merge_rounds(
-                rounds, round_name, round_info.get("type") or "other", now
+                rounds,
+                round_name,
+                round_info.get("type") or "other",
+                now,
+                parse_mail_datetime(round_info.get("scheduled_date")),
             )
 
         status = (existing or {}).get("status", "registration_open")
