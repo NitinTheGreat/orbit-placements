@@ -253,6 +253,14 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
     }
 
     final lock = widget.lock;
+    final narrowedView = lock != null || filter != DriveFilter.all;
+    if (narrowedView && _controller.hasMore) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _controller.loadAllRemaining();
+        }
+      });
+    }
     final loaded = _controller.companies;
     final matched = lock == null
         ? applyFilter(
@@ -272,8 +280,17 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
       branch: branch,
     );
 
-    final narrowed = lock != null || filter != DriveFilter.all;
-    if (narrowed && companies.isEmpty) {
+    if (narrowedView && companies.isEmpty && _controller.hasMore) {
+      return const Center(
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(strokeWidth: 2.2),
+        ),
+      );
+    }
+
+    if (narrowedView && companies.isEmpty) {
       return RefreshIndicator(
         onRefresh: _refresh,
         child: ListView(

@@ -7,7 +7,7 @@ import '../../../models/branch_eligibility.dart';
 import '../../../models/display_name.dart';
 import '../../../models/student_company_status.dart';
 import '../../../services/firestore_service.dart';
-import '../../companies/presentation/company_page_controller.dart';
+import '../../../models/company.dart';
 import 'profile_stats.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -19,27 +19,8 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final FirestoreService _firestoreService = FirestoreService();
-  final CompanyPageController _controller = CompanyPageController();
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.start();
-    _controller.addListener(_onControllerChanged);
-  }
-
-  @override
-  void dispose() {
-    _controller.removeListener(_onControllerChanged);
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onControllerChanged() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
+  late final Stream<List<Company>> _companies = _firestoreService
+      .watchCompanies();
 
   Future<void> _editNeoId(String uid, String? current) async {
     final controller = TextEditingController(text: current ?? '');
@@ -83,7 +64,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         bottom: false,
         child: studentId == null
             ? const SizedBox.shrink()
-            : StreamBuilder<List<StudentCompanyStatus>>(
+            : StreamBuilder<List<Company>>(
+                stream: _companies,
+                builder: (context, companySnapshot) {
+                  final allCompanies =
+                      companySnapshot.data ?? const <Company>[];
+                  return StreamBuilder<List<StudentCompanyStatus>>(
                 stream: _firestoreService.watchStatusesForStudent(studentId),
                 builder: (context, snapshot) {
                   final statuses =
@@ -92,7 +78,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     for (final status in statuses) status.companyId: status,
                   };
                   final stats = profileStats(
-                    companies: _controller.companies,
+                    companies: allCompanies,
                     statusesByCompanyId: byCompany,
                     branch: branch,
                   );
@@ -172,6 +158,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ],
                   );
+                },
+              );
                 },
               ),
       ),

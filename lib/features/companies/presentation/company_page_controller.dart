@@ -79,6 +79,15 @@ class CompanyPageController extends ChangeNotifier {
     }
   }
 
+  bool get isExhausted => !_hasMore;
+
+  void loadAllRemaining() {
+    if (_loadingMore || !_hasMore || _pages.isEmpty) {
+      return;
+    }
+    loadMore();
+  }
+
   void loadMore() {
     if (_loadingMore || !_hasMore || _pages.isEmpty) {
       return;
