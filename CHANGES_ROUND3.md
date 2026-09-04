@@ -358,7 +358,64 @@ what this part deliberately changes. 391 Dart tests, analyze clean.
 
 ## Part F — ordering and colour
 
-**Status:** not started
+**Status:** done
+
+### 14. Re-verified after A–C, and the tie-break added
+The five-band order still holds across all 29 live drives with the changes
+from A, B and C in place. Face Prep moved into `branchMismatch` (Part B) and
+the band counts shifted accordingly:
+
+    actionNeeded    Unthinkable, Ethos, Superjoin, Goldmansachs,
+                    Accenture, TresVista                          (6)
+    openNoAction    WinWire (NTT DATA), Kinaxis, Paytm            (3)
+    ongoing         Chubb ... WinWire                            (12)
+    concluded       Hitwicket, JPMorganChase, MUFG, ResMed        (4)
+    branchMismatch  Keyence, Urban Company, Face Prep, Cisco      (4)
+
+Within `actionNeeded`, sorting is now urgency-first, then deadline, then most
+recently announced, then name.
+
+**A bug I nearly shipped.** `DeadlineUrgency` is declared
+`{ unknown, passed, today, imminent, thisWeek, distant }` — that is *not*
+severity order. Sorting on `.index` would have put `unknown` and `passed`
+ahead of `today`, i.e. exactly backwards. There is now an explicit
+`urgencyOrder` list and a `urgencyRank` function, with a test asserting the
+severity chain rather than trusting the enum's declaration.
+
+"More recently announced" reads `lastUpdatedDate ?? sourceDate ?? createdAt`,
+so a drive re-announced by a later mail outranks one whose first sighting was
+older. Tested.
+
+### 15. Colour audit — one scale each, and one gap closed
+
+**Urgency.** A single function, `urgencyColor` in `urgency_rail.dart`, is the
+only place a deadline becomes a colour: `urgent` for today/imminent,
+`accentEdge` for this week, `successInk` for distant, `borderStrong` for
+passed/unknown. That is already the "green comfortable, amber near, red
+imminent" scale item 9 asked for, so Shortlisted needed no new colour logic —
+it reuses the same rail.
+
+**Outcome.** `StagePill` is the only place an outcome becomes a colour:
+success pair for selected, urgent pair for both rejected and not-shortlisted,
+sunken/muted for a closed drive, accent pair otherwise.
+
+**Ad-hoc colours: none introduced by any recent part.** I grepped every
+`Color(0x` and `Colors.*` in `lib/`. Outside the token file there were
+exactly three, and I checked each:
+
+1. Two literals in `app_theme.dart` for `ColorScheme.onPrimary` — a real gap,
+   since they were colour decisions living outside the tokens. Added
+   `accentContrast` to `OrbitColors` for both themes and pointed the scheme at
+   it. `app_theme.dart` now contains no colour literals.
+2. `launchGround` in `launch_curtain.dart` (`#11152A`) — **intentional and
+   left alone.** It is the brand navy of the logo tile and the native splash,
+   deliberately outside the warm app palette so the cold-start hand-off does
+   not flash a colour change. It is already a single named constant.
+
+`Colors.transparent` is the only Material colour referenced anywhere.
+
+**Verified:** 5 new ordering tests, 396 Dart tests, analyze clean.
+**Assumed:** the palette has not been re-checked for contrast on a device.
 
 ---
 

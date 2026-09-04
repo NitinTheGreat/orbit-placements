@@ -11,6 +11,7 @@ class OrbitColors {
     required this.border,
     required this.borderStrong,
     required this.accent,
+    required this.accentContrast,
     required this.accentEdge,
     required this.accentInk,
     required this.accentWash,
@@ -31,6 +32,7 @@ class OrbitColors {
   final Color border;
   final Color borderStrong;
   final Color accent;
+  final Color accentContrast;
   final Color accentEdge;
   final Color accentInk;
   final Color accentWash;
@@ -51,6 +53,7 @@ class OrbitColors {
     border: Color(0xFFE2DDD4),
     borderStrong: Color(0xFFCFC8BC),
     accent: Color(0xFFC98A2B),
+    accentContrast: Color(0xFF23180A),
     accentEdge: Color(0xFFAD741F),
     accentInk: Color(0xFF7A5214),
     accentWash: Color(0xFFF7EBD6),
@@ -72,6 +75,7 @@ class OrbitColors {
     border: Color(0xFF332E26),
     borderStrong: Color(0xFF453E33),
     accent: Color(0xFFE0A945),
+    accentContrast: Color(0xFF1A1815),
     accentEdge: Color(0xFFE0A945),
     accentInk: Color(0xFFF0D19A),
     accentWash: Color(0xFF33291A),

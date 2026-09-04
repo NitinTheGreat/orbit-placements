@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:orbit/features/companies/presentation/company_format.dart';
 import 'package:orbit/features/companies/presentation/drive_ordering.dart';
 import 'package:orbit/models/branch_eligibility.dart';
 import 'package:orbit/models/company.dart';
@@ -306,6 +307,111 @@ void main() {
       ];
 
       expect(namesOf(companies, branch: cse), ['sooner', 'later']);
+    });
+  });
+
+  group('inside action needed', () {
+    test('urgency ranks by severity, not by enum declaration order', () {
+      expect(urgencyRank(DeadlineUrgency.today), 0);
+      expect(
+        urgencyRank(DeadlineUrgency.today),
+        lessThan(urgencyRank(DeadlineUrgency.imminent)),
+      );
+      expect(
+        urgencyRank(DeadlineUrgency.imminent),
+        lessThan(urgencyRank(DeadlineUrgency.thisWeek)),
+      );
+      expect(
+        urgencyRank(DeadlineUrgency.thisWeek),
+        lessThan(urgencyRank(DeadlineUrgency.distant)),
+      );
+      expect(
+        urgencyRank(DeadlineUrgency.distant),
+        lessThan(urgencyRank(DeadlineUrgency.passed)),
+      );
+      expect(
+        urgencyRank(DeadlineUrgency.passed),
+        lessThan(urgencyRank(DeadlineUrgency.unknown)),
+      );
+    });
+
+    test('a deadline today leads one later this week', () {
+      final companies = [
+        drive('this week', deadline: now.add(const Duration(days: 5))),
+        drive('today', deadline: now.add(const Duration(hours: 6))),
+      ];
+      expect(namesOf(companies), ['today', 'this week']);
+    });
+
+    test('equal deadlines fall back to the most recently announced', () {
+      final deadline = now.add(const Duration(days: 2));
+      final companies = [
+        Company(
+          id: 'older',
+          name: 'older',
+          category: 'Core',
+          registrationDeadline: deadline,
+          sourceDate: now.subtract(const Duration(days: 9)),
+          requirements: const [
+            CompanyRequirement(
+              id: 'neopat',
+              type: RequirementType.neopat,
+              label: 'Register',
+              isRequired: true,
+            ),
+          ],
+        ),
+        Company(
+          id: 'newer',
+          name: 'newer',
+          category: 'Core',
+          registrationDeadline: deadline,
+          sourceDate: now.subtract(const Duration(days: 1)),
+          requirements: const [
+            CompanyRequirement(
+              id: 'neopat',
+              type: RequirementType.neopat,
+              label: 'Register',
+              isRequired: true,
+            ),
+          ],
+        ),
+      ];
+      expect(namesOf(companies), ['newer', 'older']);
+    });
+
+    test('a later update outranks an older first sighting', () {
+      final deadline = now.add(const Duration(days: 2));
+      Company make(String name, DateTime source, DateTime? updated) => Company(
+        id: name,
+        name: name,
+        category: 'Core',
+        registrationDeadline: deadline,
+        sourceDate: source,
+        lastUpdatedDate: updated,
+        requirements: const [
+          CompanyRequirement(
+            id: 'neopat',
+            type: RequirementType.neopat,
+            label: 'Register',
+            isRequired: true,
+          ),
+        ],
+      );
+      final companies = [
+        make('refreshed', now.subtract(const Duration(days: 20)),
+            now.subtract(const Duration(hours: 2))),
+        make('stale', now.subtract(const Duration(days: 2)), null),
+      ];
+      expect(namesOf(companies), ['refreshed', 'stale']);
+    });
+
+    test('a drive with no dates at all still sorts last, deterministically', () {
+      final companies = [
+        drive('undated', deadline: null),
+        drive('dated', deadline: now.add(const Duration(days: 3))),
+      ];
+      expect(namesOf(companies), ['dated', 'undated']);
     });
   });
 }

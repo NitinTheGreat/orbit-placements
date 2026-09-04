@@ -94,9 +94,7 @@ class AppTheme {
     final colorScheme = ColorScheme(
       brightness: brightness,
       primary: colors.accent,
-      onPrimary: brightness == Brightness.light
-          ? const Color(0xFF23180A)
-          : const Color(0xFF1A1815),
+      onPrimary: colors.accentContrast,
       primaryContainer: colors.accentWash,
       onPrimaryContainer: colors.accentInk,
       secondary: colors.success,
