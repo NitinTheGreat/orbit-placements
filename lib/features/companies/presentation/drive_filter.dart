@@ -90,10 +90,8 @@ bool matchesLock({
   );
 
   return switch (lock) {
-    DriveLock.openNow => company.status == CompanyStatus.registrationOpen,
-    DriveLock.shortlisted =>
-      application.isInProgress ||
-          application.overallStatus == OverallStatus.selected,
+    DriveLock.openNow => application.isOpenNow,
+    DriveLock.shortlisted => application.isShortlisted,
   };
 }
 

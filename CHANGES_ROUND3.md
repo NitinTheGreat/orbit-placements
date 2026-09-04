@@ -179,7 +179,83 @@ over-reaching), and Cognizant/Kinaxis for an MCA student are now `not_open`
 
 ## Part C — tab semantics
 
-**Status:** not started
+**Status:** done, except the higher-package feature which is **deliberately
+inactive** — see item 11.
+
+### 8. Open now
+`registrationStillOpen` = status is `registration_open` **and** (deadline in
+the future **or** no deadline at all). Added as a shared predicate in
+`application_status.dart`, not inline in the lock.
+
+WinWire (Part of NTT DATA) is the live example: `registration_open` with a
+deadline of 01 Sep, i.e. already past. It no longer appears. The live-snapshot
+test asserts this against whatever stale-open drives the fixture actually
+contains rather than hard-coding a name.
+
+### 9. Shortlisted
+Was `isInProgress || selected`, and `isInProgress` requires
+`overallStatus == active` — so a student who cleared a round and was later
+rejected vanished from the tab entirely. Now `wasShortlisted`: any round
+history entry with `cleared` or `invited`, or an outright offer, **regardless
+of the drive's lifecycle state**. Concluded drives therefore stay visible.
+
+**Judgment call, and it reverses one of my own earlier tests.** An offer is
+now checked *before* the opted-out guard, so a student who turned tracking
+off still sees a drive they were selected for. Hiding somebody's offer
+because they muted notifications would be the worse error. A cleared round
+with tracking off is still hidden, as before.
+
+De-emphasis: `DriveCard` takes `deEmphasiseConcluded`, set only by the
+Shortlisted list, and reuses the **existing** muted treatment already built
+for off-branch drives — the same `0.58` opacity and the same forced
+`DeadlineUrgency.passed` rail. No second visual language, no strikethrough.
+
+Colour-coding for active entries needed no work: the card already draws its
+rail from `DriveApplication.urgency`, which is the one urgency scale. I
+checked rather than adding a parallel one.
+
+### 10. Selected — already correct, verified not changed
+`DriveFilter.selected` already tested `overallStatus == OverallStatus.selected`
+and never consulted round history. I added a test pinning that a merely
+*cleared* round does **not** put a drive on the Selected tab, so the
+distinction cannot regress.
+
+### 11. Higher-package eligibility — built, and off
+
+**Checked first, as asked:** there are no `ctcMinLpa` / `ctcMaxLpa` fields
+anywhere in the schema or the ingestion code. `ctc` is a free-text string
+only. So parsing had to be written.
+
+`ctc_parsing.dart` handles every shape actually present in production, and
+each one is a test case:
+
+| Live string | Parsed |
+| --- | --- |
+| `20 LPA` | 20 |
+| `11.58 LPA` | 11.58 |
+| `10.00 LPA (If converted)` | 10 |
+| `1365000 (If Converted)` | 13.65 |
+| `800000` | 8 |
+| `7.5 LPA - 16 Lakhs` | 7.5 – 16 |
+| `INR 12 LPA - INR 18 LPA` | 12 – 18 |
+| `Refer Attachment` | nothing |
+| `To be announced later` | nothing |
+
+A bare number of 10,000 or more is read as rupees per annum and divided down;
+below that it is read as already being in lakhs. Crore is handled.
+
+**`offerMultiplierThresholds` is written to `config/ingestion` with both
+`dream` and `superDream` set to `null`**, exactly as instructed, and read at
+runtime. `OfferThresholds.isConfigured` is false, so
+`stillEligibleAbove` returns false for everything and **nothing is surfaced
+on the Selected tab**. I did not guess a multiplier. Tests pin that the
+feature stays silent while unset and works once set.
+
+To switch it on, set those two numbers in `config/ingestion` and tell me.
+
+**Verified:** 15 CTC tests, 13 tab-semantics tests including two against the
+live snapshot, 376 Dart tests, analyze clean.
+**Assumed:** the de-emphasised rendering has not been seen on a device.
 
 ---
 

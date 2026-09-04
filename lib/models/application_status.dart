@@ -71,6 +71,31 @@ bool inProgress({
   return roundHistory.any((entry) => activeRoundResults.contains(entry.result));
 }
 
+bool wasShortlisted({
+  required bool? optedIn,
+  required OverallStatus overallStatus,
+  required List<RoundHistoryEntry> roundHistory,
+}) {
+  if (overallStatus == OverallStatus.selected) {
+    return true;
+  }
+  if (optedIn == false) {
+    return false;
+  }
+  return roundHistory.any((entry) => activeRoundResults.contains(entry.result));
+}
+
+bool registrationStillOpen(Company company, {DateTime? now}) {
+  if (company.status != CompanyStatus.registrationOpen) {
+    return false;
+  }
+  final deadline = company.registrationDeadline;
+  if (deadline == null) {
+    return true;
+  }
+  return deadline.toLocal().isAfter(now ?? DateTime.now());
+}
+
 bool checklistEditable(
   CompanyStatus status,
   DateTime? deadline, {
@@ -194,6 +219,16 @@ class DriveApplication {
     overallStatus: overallStatus,
     roundHistory: status?.roundHistory ?? const [],
   );
+
+  bool get isShortlisted => wasShortlisted(
+    optedIn: optedIn,
+    overallStatus: overallStatus,
+    roundHistory: status?.roundHistory ?? const [],
+  );
+
+  bool get isConcluded => concludedStatuses.contains(company.status);
+
+  bool get isOpenNow => registrationStillOpen(company, now: now);
 
   bool get isEditable =>
       checklistEditable(company.status, company.registrationDeadline, now: now);

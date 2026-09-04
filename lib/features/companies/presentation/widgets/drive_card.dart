@@ -17,12 +17,14 @@ class DriveCard extends StatelessWidget {
     required this.company,
     this.status,
     this.branch,
+    this.deEmphasiseConcluded = false,
     this.onTap,
   });
 
   final Company company;
   final StudentCompanyStatus? status;
   final BranchInfo? branch;
+  final bool deEmphasiseConcluded;
   final VoidCallback? onTap;
 
   @override
@@ -35,7 +37,9 @@ class DriveCard extends StatelessWidget {
       eligibleBranches: company.eligibleBranches,
     );
     final offBranch = relevance == BranchRelevance.notOpen;
-    final urgency = offBranch ? DeadlineUrgency.passed : application.urgency;
+    final muted =
+        offBranch || (deEmphasiseConcluded && application.isConcluded);
+    final urgency = muted ? DeadlineUrgency.passed : application.urgency;
 
     return Pressable(
       onTap: onTap,
@@ -65,7 +69,7 @@ class DriveCard extends StatelessWidget {
                 OrbitSpacing.lg,
               ),
               child: Opacity(
-                opacity: offBranch ? 0.58 : 1,
+                opacity: muted ? 0.58 : 1,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

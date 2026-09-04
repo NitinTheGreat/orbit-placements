@@ -362,6 +362,7 @@ class _CompanyListScreenState extends State<CompanyListScreen> {
             company: company,
             status: statusesByCompanyId[company.id],
             branch: branch,
+            deEmphasiseConcluded: widget.lock == DriveLock.shortlisted,
             onTap: () => context.goNamed(
               AppRoutes.companyDetail,
               pathParameters: {'companyId': company.id},

@@ -215,7 +215,7 @@ void main() {
       );
     });
 
-    test('Open now keeps a drive whose deadline has passed', () {
+    test('Open now drops a drive whose deadline has passed', () {
       expect(
         matchesLock(
           lock: DriveLock.openNow,
@@ -223,7 +223,7 @@ void main() {
           status: null,
           now: now,
         ),
-        isTrue,
+        isFalse,
       );
     });
 
