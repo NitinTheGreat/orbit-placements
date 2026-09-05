@@ -345,10 +345,128 @@ staying put on both sides.
 
 ## Part F — release
 
-**Status:** not started
+**Status: shipped, but as v1.2.0 rather than v1.1.0**
+
+### 17. The version number changed on me, and you should know why
+The brief said "version-bumped from v1.0.0", so I built and tagged v1.1.0 —
+and `gh release create` refused it: **a v1.1.0 release already exists**,
+published 2 September, carrying `app-release.apk` (60,222,280 bytes, already
+downloaded twice) and `orbit-unsigned.ipa`, with notes about the web sign-in
+fix and iOS sideloading.
+
+Overwriting it would have destroyed a release people had already pulled, so I
+did not. The round 2–4 build ships as **v1.2.0** instead, and v1.1.0 is
+untouched — verified after the fact that both its assets and their download
+counts are still there.
+
+`pubspec.yaml` is `1.2.0+3` to match.
+
+### 18. The release
+- `flutter analyze`: clean
+- 433 Dart tests, 309 Python tests: pass
+- `app-release.apk`, 57.5 MB, signed with the same key as v1.1.0 so it
+  installs over the top and keeps the Gmail connection
+- `adb install -r`: Success. Device reports `versionCode=3 versionName=1.2.0`
+- Launched and screenshotted on device (`F-v120-running.png`): list renders
+  with the new palette, real drives, real dates
+- <https://github.com/NitinTheGreat/orbit-placements/releases/tag/v1.2.0>,
+  marked Latest, one asset `orbit-1.2.0.apk` in state `uploaded`
+
+Release notes cover rounds 2–4: eligibility and degree-level gating, the
+derived dates, the paging fix, Ask Orbit and its memory, notifications and
+the widget, and the visual overhaul.
+
+---
+
+## Found while verifying, after Part F
+
+### 19. Ask Orbit was answering in half a sentence — fixed, not yet deployed
+Going back to close the two Ask Orbit checks that had never been run against
+the live model, I asked the 24-hour preset on the phone and got back:
+
+> In the next 24 hours, the
+
+and nothing more. I checked the layout first and cleared it: the panel sizes
+to its content, and a swipe over the answer produced **zero changed pixels**,
+so nothing was being clipped. The answer really was that short.
+
+The cause is `max_output_tokens=400` on `gemini-3.7-flash`, which **thinks by
+default, and thinking tokens are drawn from that same budget.** Reproduced
+against the live model with the exact shipped config:
+
+    OLD  max_output_tokens=400, default thinking
+         finish_reason: MAX_TOKENS
+         thoughts_tokens: 381   candidates_tokens: 15
+         text: 'Today, 2026-09-05, you'
+
+    NEW  max_output_tokens=1200, thinking_level=low
+         finish_reason: STOP
+         thoughts_tokens: 244   candidates_tokens: 57
+         text: 'RFPIO India Pvt. Ltd (DBA Responsive) and TresVista Financial
+                Services both have deadlines due today on 2026-09-05.
+                Additionally, Cognizant has a deadline coming up on 2026-09-06.'
+
+381 of 400 tokens went to thinking. Fifteen were left for the answer.
+
+**Fixed:** thinking held to `low`, budget raised to 1200. If the cap is ever
+hit anyway the answer is cut back to whole sentences instead of being handed
+over mid-clause, and a fragment with no complete sentence raises rather than
+being shown. 12 new tests, 309 Python tests pass.
+
+**This has NOT reached your phone** — see *Needs your attention*.
+
+### 20. The three outstanding Ask Orbit checks, now run
+Run against the live `gemini-3.7-flash` with the shipped prompt and the new
+config, on a context built from your actual visible drives:
+
+**Memory resolves a follow-up.** Turn one asked what was due in 24 hours.
+Turn two asked *"Which of those two pays more, and what do I still have to do
+for it?"* — no company named, a pronoun pointing back. It answered
+TresVista at 11.58 LPA over RFPIO at 10.00 LPA, with TresVista's status and
+deadline. **Passes.**
+
+**It refuses to invent.** Asked for the cutoff CGPA and coding-round date for
+a "Google drive" that does not exist in the context: *"I do not have any
+information about a Google drive, as Orbit has not seen it yet. Consequently,
+I do not know the cutoff CGPA or the date for its coding round."* No invented
+company, no invented date. **Passes.**
+
+**Long answers come back whole.** A question asking for every drive one by
+one returned 551 characters, `finish_reason: STOP`, all four drives with
+deadline, pay and state. **Passes.**
+
+The scrolling half of that last check is still only proven in a widget test
+(`a long answer scrolls while the chips and input stay put`, which asserts
+`maxScrollExtent > 0` on a 320×480 screen with a genuinely overflowing
+answer). I could not force an overflowing answer on the phone, because the
+phone is still running the truncating build.
 
 ---
 
 ## Needs your attention
 
-Nothing yet.
+### The assistant fix is written, tested and pushed, but not deployed
+`firebase deploy --only functions:askOrbit` fails with **"Failed to
+authenticate, have you run firebase login?"**. The CLI's credential store at
+`C:\Users\-THE-GREAT-\.config\configstore\firebase-tools.json` now holds only
+`motd` and `apiEnablementCache` — the tokens are gone. They were present
+earlier in this session, when the recovery deploys ran. There is no service
+account key on this machine and no `GOOGLE_APPLICATION_CREDENTIALS` set, and
+`firebase login` needs a browser I cannot drive.
+
+**What that means right now:** Ask Orbit on your phone still truncates every
+answer to a fragment. Everything else in v1.2.0 is client-side and works.
+
+**To fix it:** run `firebase login`, then
+
+    firebase deploy --only functions:askOrbit --project orbit-507316
+
+The commit is `c3faa9e` and is already on `main`.
+
+### Watch renewal is still unproven
+Carried over from the recovery session and unchanged: `renewGmailWatches`
+never actually executed — two scheduler triggers logged "no available
+instance" and a direct OIDC invoke returned `429 Rate exceeded`. No
+expiration moved. All seven watches still have roughly six days of headroom,
+so this is not urgent, but the renewal path has not been shown to work since
+billing came back.
