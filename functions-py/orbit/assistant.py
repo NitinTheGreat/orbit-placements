@@ -13,6 +13,8 @@ MAX_COMPANIES_IN_CONTEXT = 40
 MAX_HISTORY_TURNS = 6
 MAX_HISTORY_CHARS = 4000
 MAX_STORED_ANSWER_CHARS = 1200
+MAX_OUTPUT_TOKENS = 1200
+SENTENCE_ENDS = ".!?"
 
 SYSTEM_PROMPT = (
     "You are Orbit's assistant. You answer one question about this single "
@@ -277,6 +279,23 @@ def recently_created(company: dict[str, Any], now: datetime) -> bool:
     return now - created <= timedelta(days=3)
 
 
+def hit_output_cap(response: Any) -> bool:
+    candidates = getattr(response, "candidates", None) or []
+    for candidate in candidates:
+        reason = getattr(candidate, "finish_reason", None)
+        name = getattr(reason, "name", None) or str(reason or "")
+        if name.upper().endswith("MAX_TOKENS"):
+            return True
+    return False
+
+
+def whole_sentences(text: str) -> str:
+    for index in range(len(text) - 1, -1, -1):
+        if text[index] in SENTENCE_ENDS:
+            return text[: index + 1].strip()
+    return ""
+
+
 class GeminiAnswerer:
     def __init__(self, client=None, model: str | None = None):
         import os
@@ -310,13 +329,16 @@ class GeminiAnswerer:
             config=types.GenerateContentConfig(
                 system_instruction=SYSTEM_PROMPT,
                 temperature=0.2,
-                max_output_tokens=400,
+                max_output_tokens=MAX_OUTPUT_TOKENS,
+                thinking_config=types.ThinkingConfig(thinking_level="low"),
                 automatic_function_calling=types.AutomaticFunctionCallingConfig(
                     disable=True
                 ),
             ),
         )
         text = (getattr(response, "text", None) or "").strip()
+        if hit_output_cap(response):
+            text = whole_sentences(text)
         if not text:
             raise AssistantError("internal", "No answer came back. Try again.")
         return text

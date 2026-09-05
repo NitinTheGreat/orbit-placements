@@ -10,11 +10,14 @@ from orbit.assistant import (
     MAX_FREE_TEXT,
     PRESETS,
     AssistantError,
+    GeminiAnswerer,
     build_context,
     build_prompt,
     day_key,
+    hit_output_cap,
     next_usage,
     resolve_question,
+    whole_sentences,
     within_daily_limit,
 )
 
@@ -353,3 +356,77 @@ class TestConversationMemory:
         )
         assert "the only source" in prompt
         assert "drives: (no drives)" in prompt
+
+
+class _Reason:
+    def __init__(self, name):
+        self.name = name
+
+
+class _Candidate:
+    def __init__(self, name):
+        self.finish_reason = _Reason(name)
+
+
+class _Response:
+    def __init__(self, text, reason):
+        self.text = text
+        self.candidates = [_Candidate(reason)] if reason else []
+
+
+class _Client:
+    def __init__(self, response):
+        self.models = self
+        self.response = response
+        self.config = None
+
+    def generate_content(self, model, contents, config):
+        self.config = config
+        return self.response
+
+
+class TestOutputCap:
+    def test_max_tokens_finish_reason_is_detected(self):
+        assert hit_output_cap(_Response("x", "MAX_TOKENS"))
+
+    def test_stop_finish_reason_is_not_a_cap(self):
+        assert not hit_output_cap(_Response("x", "STOP"))
+
+    def test_missing_candidates_is_not_a_cap(self):
+        assert not hit_output_cap(_Response("x", None))
+
+    def test_whole_sentences_drops_the_dangling_clause(self):
+        assert (
+            whole_sentences("Two close today. In the next 24 hours, the")
+            == "Two close today."
+        )
+
+    def test_whole_sentences_keeps_a_complete_answer(self):
+        assert whole_sentences("Nothing is due today.") == "Nothing is due today."
+
+    def test_whole_sentences_of_a_single_fragment_is_empty(self):
+        assert whole_sentences("In the next 24 hours, the") == ""
+
+
+class TestGeminiAnswerer:
+    def test_a_truncated_answer_is_cut_back_to_whole_sentences(self):
+        client = _Client(
+            _Response("TresVista closes today. In the next 24 hours, the", "MAX_TOKENS")
+        )
+        answer = GeminiAnswerer(client=client)("q", "c")
+        assert answer == "TresVista closes today."
+
+    def test_a_complete_answer_is_returned_whole(self):
+        client = _Client(_Response("Nothing closes today.", "STOP"))
+        assert GeminiAnswerer(client=client)("q", "c") == "Nothing closes today."
+
+    def test_a_truncated_fragment_with_no_sentence_raises(self):
+        client = _Client(_Response("In the next 24 hours, the", "MAX_TOKENS"))
+        with pytest.raises(AssistantError):
+            GeminiAnswerer(client=client)("q", "c")
+
+    def test_thinking_is_held_low_and_the_budget_is_generous(self):
+        client = _Client(_Response("Nothing closes today.", "STOP"))
+        GeminiAnswerer(client=client)("q", "c")
+        assert client.config.max_output_tokens == 1200
+        assert client.config.thinking_config.thinking_level == "LOW"
